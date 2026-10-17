@@ -1,0 +1,313 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Pacotes Essenciais ---
+\usepackage[utf8]{inputenc}
+\usepackage[portuguese]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{cite}
+\usepackage{setspace}
+\onehalfspacing
+
+% Configuração de Links
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    citecolor=blue,
+    urlcolor=blue
+}
+
+\begin{document}
+
+% ==========================================
+% Capa
+% ==========================================
+\begin{titlepage}
+    \begin{center}
+        \vspace*{0.5cm}
+        \includegraphics[width=0.65\textwidth]{Research Project Proposal/images/logo-iscte.png}\\[1.5cm]
+
+        {\large Mestrado em Engenharia Informática}\\[0.2cm]
+        {\large \textbf{Segurança em Redes e Sistemas de Informação}}\\[2cm]
+
+        {\huge \textbf{Análise de Vulnerabilidades Web e Mitigação com \textit{WAF ModSecurity}}}\\[2cm]
+
+        \large
+        \textbf{Autores:}\\[0.3cm]
+        Daniel Nunes, Nº 123547\\[0.15cm]
+        Guilherme Alves, Nº 122661\\[0.15cm]
+        João Oliveira, Nº 142584\\[2cm]
+
+        \textbf{Docente:} Prof. Daniel Caçador\\[0.5cm]
+        \textbf{Data:} \today
+    \end{center}
+\end{titlepage}
+
+% ==========================================
+% Resumo
+% ==========================================
+\clearpage
+\section*{Resumo}
+\addcontentsline{toc}{section}{Resumo}
+Este documento descreve o impacto de vulnerabilidades Web críticas, como \textit{SQL Injection} (SQLi) e \textit{Cross-Site Scripting} (XSS) em aplicações Web. Também analisa a eficácia da mitigação utilizando o \textit{Web Application Firewall} (WAF) \textit{ModSecurity} com o OWASP \textit{Core Rule Set} (CRS). Na fase teórica deste projeto, é feito o estudo detalhado sobre o OWASP Top 10, compara as principais soluções WAF disponíveis no mercado com as abordagens encontradas no mundo científico, e define um modelo matemático para avaliar o risco, precisão de detaçã e latência de processamento.
+
+\vspace{0.8cm}
+\noindent \textbf{Palavras-chave:} Segurança Web, OWASP Top 10, WAF, \textit{ModSecurity}, \textit{SQL Injection}, XSS.
+
+% ==========================================
+% Indice
+% ==========================================
+\clearpage
+\tableofcontents
+
+% ==========================================
+% Glossário
+% ==========================================
+\clearpage
+\section*{Glossário}
+\addcontentsline{toc}{section}{Glossário}
+\begin{description}
+    \item[CRS] \textit{Core Rule Set} (conjunto de regras da OWASP para WAFs).
+    \item[DVWA] \textit{Damn Vulnerable Web Application}.
+    \item[FN] Falso Negativo (\textit{False Negative}).
+    \item[FP] Falso Positivo (\textit{False Positive}).
+    \item[OWASP] \textit{Open Web Application Security Project}.
+    \item[SQLi] \textit{Structured Query Language Injection}.
+    \item[TN] Verdadeiro Negativo (\textit{True Negative}).
+    \item[TP] Verdadeiro Positivo (\textit{True Positive}).
+    \item[WAF] \textit{Web Application Firewall}.
+    \item[XSS] \textit{Cross-Site Scripting}.
+\end{description}
+
+% ==========================================
+% 1. Introdução
+% ==========================================
+\clearpage
+\section{Introdução}
+O crescimento constante de aplicações Web deixas as infraestruturas expostas a ameaças cada vez mais avançadas. Falhas de segurança na camada de aplicação são frequentemente exploradas porque estão diretamente acessíveis à rede pública e porque o desenvolvimento seguro é complexo.
+
+Este projeto pretende analisar o mecanismo de proteção oferecido por uma \textit{Web Application Firewall} (WAF), com foco no \textit{ModSecurity} v3, utilizando o OWASP \textit{Core Rule Set} (CRS) integrado no servidor web Nginx.
+
+A estrutura deste documento tem a Secção 2 com o estado da arte sobre vulnerabilidades críticas e o ecossistema de WAFs. A Secção 3 apresenta uma análise comparativa de soluções existentes e de trabalhos relacionados. A Secção 4 define matematicamente as métricas de validação e risco. A Secção 5 descreve a arquitetura proposta e inclui o repositório do projeto. A Secção 6 traz as conclusões iniciais e o trabalho futuro.
+
+% ==========================================
+% 2. Estado da arte
+% ==========================================
+\clearpage
+\section{Estado da Arte}
+\label{sec:estado_arte}
+
+\subsection{Paradigma da Segurança na Camada Aplicacional}
+
+A consolidação de arquiteturas orientadas a serviços e aplicações Web fez com que o protocolo HTTP/HTTPS se tornasse o principal canal de comunicação entre sistemas empresariais. No entanto, as soluções tradicionais de segurança demonstram ser ineficientes diante de ataques que envolvam diretamente a camada de aplicação.
+
+Isto acontece porque quer o tráfego, quer as tentativas de invasão passam pelas mesmas portas padrão (80 e 443), e não podem ser diferenciados apenas pelo endereço ou porta. Por isso, é essencial escolher mecanismos que analisem profundamente o conteúdo dos pedidos e respostas.
+
+Os WAFs têm um papel fundamental na estratégia de defesa em profundidade. Estes não substituem as boas práticas de desenvolvimento seguro de software, atuam como uma camada de proteção adicional, ajudando a mitigar as ameaças de forma imediata enquanto as vulnerabilidades das aplicações em produção ainda não foram corrigidas.
+
+\subsection{Mecânica das Vulnerabilidades Críticas (OWASP)}
+O acordo OWASP documenta e atualiza frequentemente os riscos de maior incidência que afetam aplicações Web. São abordadas duas das principais categorias do OWASP Top 10, explorando o seu funcionamento e os desafios de mitigação:
+
+\begin{itemize}
+    \item \textbf{\textit{SQL Injection} (SQLi):} Acontece quando entradas erradas feitas pelo utilizador são concatenadas de forma direta em instruções SQL sem a devida validação de tipos. Esta falha viola a fronteira entre o plano de controlo e dos dados da base de dados. Estas explorações podem ser:
+    
+    \begin{enumerate}
+        \item \textit{In-Band:} Quando o atacante utiliza o operador \texttt{UNION} para juntar o resultado das suas consultas maliciosas à resposta original da aplicação.
+        \item \textit{Inferencial (Blind):} Quando a aplicação oculta mensagens de erro e resultados, forçando o atacante a presumir a informação através de respostas booleanas (\textit{Boolean Blind}) ou medição do tempo de latência forçado na base de dados (\textit{Time-Based Blind}).
+        \item \textit{Out-of-Band:} Quando a extração de dados é redirecionada através de outros canais e protocolos, designadamente pedidos DNS ou HTTP externos desencadeados pelo servidor de base de dados.
+    \end{enumerate}
+
+    \newpage
+    \item \textbf{Cross-Site Scripting (XSS):} Caracteriza-se pela falha na higienização e codificação de caracteres especiais nas respostas devolvidas ao cliente. Pode ser divido em:
+    \begin{enumerate}
+        \item \textit{Non-Persistent:} O \textit{script} malicioso é integrado no URL ou pedido HTTP e reflete diretamente pelo servidor Web para o utilizador
+        \item \textit{Persistent:} O conteúdo malicioso é salvo permanentemente no servidor alvo e é entregue a todos os utilizadores que carreguem a página afetada.
+        \item \textit{DOM-based:} A vulnerabilidade existe inteiramente no lado do cliente ao invés de estar no código dentro do servidor. O \textit{browser} processa dados não confiáveis do DOM de maneira insegura.
+    \end{enumerate}
+\end{itemize}
+
+\subsection{Modelos de Deteção e Mecanismos de Inspeção em WAFs}
+Os motores de inspeção de WAF assentam tipicamente em dois paradigmas fundamentais de segurança:
+\begin{itemize}
+    \item \textbf{\textit{Whitelisting} (Modelo Positivo):} Estabelece uma estratégia de segurança baseada no principio do menor privilégio. Ao invés de estar continuamente a pesquisar por assinaturas maliciosas, define o que um tráfego legítimo é e deixa-o passar.
+    \item \textbf{\textit{Blacklisting} (Modelo Negativo):} Baseia-se no princípo de bloquear o que é explicitamente conhecido como malicioso. Atua como um filtro que analisa o tráfego em busca de ameaças já conhecidas e permite a passagem de tudo o resto por padrão.
+\end{itemize}
+
+Para mitigar a fuga de atacantes, os motores de WAF modernos aplicam sequências de transformação e normalização de dados antes de submeter os conteúdos à avaliação de regras.
+
+\newpage
+\subsection{Arquitetura do \textit{ModSecurity} v3 e OWASP \textit{Core Rule Set}}
+O \textit{ModSecurity} consolidou-se como o motor de WAF em código aberto de maior relevância. A versão 3 foi reformulada sob uma arquitetura modular em C++, desacoplando o núcleo de processamento do servidor aplicacional, permitindo a integração fluida com o servidor Nginx.
+
+O ciclo de vida de cada transação HTTP decompõe-se em cinco fases sequenciais:
+\begin{enumerate}
+    \item \textbf{Fase 1 (\textit{Request Headers}):} Análise inicial dos cabeçalhos do pedido antes do processamento do corpo.
+    \item \textbf{Fase 2 (\textit{Request Body}):} Validação do corpo da mensagem HTTP. É bastante crítica pois são avaliados os parâmetros submetidos por formulários e \textit{payloads}.
+    \item \textbf{Fase 3 (\textit{Response Headers}):} Avaliação dos cabeçalhos devolvidos pelo servidor de aplicação.
+    \item \textbf{Fase 4 (\textit{Response Body}):} Inspeção do conteúdo da resposta, prevenindo a transferência de dados sensíveis ou mensagens de erro interno.
+    \item \textbf{Fase 5 (\textit{Logging}):} Registo estruturado de auditoria e telemetria no ficheiro de eventos para análise.
+\end{enumerate}
+
+Em conjunto com o OWASP \textit{Core Rule Set} (CRS), o ModSecurity implementa preferencialmente o modo de pontuação de anomalias. Neste modelo, uma regra ativada não provoca o encerramento imediato da ligação, em alternativa, atribui um valor incremental de risco consoante a severidade da ocorrência. O bloqueio efetivo só ocorre no termo da Fase 2 ou Fase 4 caso o somatório das pontuações acumuladas ultrapasse o patamar de bloqueio pré-configurado, reduzindo a taxa de falsos positivos face a métodos estáticos de correspondência imediata.
+
+% ==========================================
+% 3. Comparação de soluções WAF e Trabalhos relacionados
+% ==========================================
+\clearpage
+\section{Comparação de Soluções WAF e Trabalhos Relacionados}
+\label{sec:comparativo}
+
+\subsection{Comparação de Soluções WAF}
+A Tabela \ref{tab:comparativo_waf} mostra as principais características de diferentes abordagens de WAF existentes.
+
+\begin{table}[h!]
+\centering
+\caption{Comparação entre diferentes soluções de WAF.}
+\label{tab:comparativo_waf}
+\begin{tabularx}{\textwidth}{l p{2.5cm} p{3cm} X}
+\toprule
+\textbf{Solução} & \textbf{Tipo de Licença} & \textbf{Modelo de Deteção} & \textbf{Vantagens / Limitações} \\
+\midrule
+\textbf{ModSecurity + CRS} & Open-Source (Apache 2.0) & Assinaturas e \textit{Anomaly Scoring} & Alta flexibilidade e personalização de regras, requer calibração contra falsos positivos. \\
+\textbf{AWS WAF} & Proprietário (Cloud) & Regras geridas e regras customizadas & Totalmente integrado na AWS e escalável, custos associados por regras e tráfego. \\
+\textbf{Cloudflare WAF} & Proprietário (SaaS) & Inteligência de ameaças global + ML & Baixa manutenção e proteção DDoS incluída, menor visibilidade dos logs internos detalhados. \\
+\textbf{NAXSI} & Open-Source (GPLv3) & Modelo positivo / Heurística & Extremamente leve para Nginx, requer processo complexo de aprendizagem inicial (\textit{whitelisting}). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\newpage
+\subsection{Trabalhos Relacionados na Literatura}
+A eficácia dos WAFs na mitigação de ataques à camada de aplicação tem sido amplamente investigada pela comunidade científica, com foco nos limites dos motores baseados em assinaturas e na sobrecarga de processamento associada.
+
+Estudos de referência na avaliação de eficácia defensiva demonstram que, embora o \textit{ModSecurity} com o OWASP \textit{Core Rule Set} (CRS) proporcione uma barreira robusta contra ataques padrão, a dependência de regras estáticas torna o sistema vulnerável a técnicas avançadas de \textit{fuzzing} de \textit{payloads}. Investigações recentes evidenciam que pequenas alterações sintáticas em comandos de \textit{SQL Injection} e \textit{Cross-Site Scripting} conseguem, em determinados cenários, contornar as expressões regulares do CRS sem perder a sua capacidade intrusiva na base de dados, provocando taxas indesejadas de falsos negativos.
+
+Diversos autores analisaram o compromisso entre segurança e usabilidade operacional. O aumento do nível de paranoia nas regras do OWASP CRS eleva consideravelmente a taxa de deteção de ataques, mas tem como consequência direta o elevado número de falsos positivos em pedidos legítimos complexos (como transações JSON e parâmetros codificados). Adicionalmente, estudos de desempenho focados no impacto de latência demonstraram que a inspeção profunda de pacotes e a avaliação acumulativa de pontuações de anomalia (\textit{Anomaly Scoring}) introduzem uma degradação mensurável no tempo médio de resposta do servidor Web sob condições de elevado tráfego concorrente.
+
+A Tabela \ref{tab:trabalhos_relacionados} sintetiza os principais eixos de análise presentes na literatura e a proposta para este projeto.
+
+\begin{table}[h!]
+\centering
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\caption{Comparação entre trabalhos relacionados da literatura e a proposta do projeto.}
+\label{tab:trabalhos_relacionados}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.3cm} >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}p{2.0cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Trabalho / Estudo} & \textbf{Solução WAF} & \textbf{Alvo de Teste} & \textbf{Vulnerabilidades} & \textbf{Métricas Avaliadas} \\
+\midrule
+Estudos de Evasão e Robustez & ModSecurity / CRS & Aplicações sintéticas e testes laboratoriais & SQLi avançado e mutações sintáticas & Taxa de deteção (\textit{True Positive Rate}) e evasão (\textit{Bypass}). \\
+\addlinespace
+Avaliações de Benchmark & WAFs comerciais vs. ModSecurity & Ambientes vulneráveis & OWASP Top 10 generalista & Cobertura de vulnerabilidades e alertas gerados. \\
+\addlinespace
+Análise de Sobrecarga de Rede & ModSecurity em Apache/Nginx & Servidores Web de teste & Tráfego HTTP geral & Latência, tempo de resposta e pedidos por segundo. \\
+\addlinespace
+\textbf{Proposta} & \textbf{ModSecurity v3 + CRS em Nginx} & \textbf{DVWA (Ambiente em Docker)} & \textbf{SQLi (In-Band, Blind) e XSS (Reflected, Stored)} & \textbf{Matriz de Confusão (Precisão, Recall, F1) e Latência ($\Delta L$)}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ==========================================
+% 4. Formulação teórica e Métricas
+% ==========================================
+\clearpage
+\section{Formulação Teórica e Métricas Matemáticas}
+\label{sec:modelo}
+
+Para validar formalmente o comportamento do WAF, recorre-se à matriz de confusão e às métricas padronizadas de eficácia em sistemas de deteção:
+\begin{itemize}
+    \item \textbf{True Positives ($TP$):} Ataques reais que o WAF bloqueou corretamente.
+    \item \textbf{False Positives ($FP$):} Pedidos legítimos bloqueados incorretamente.
+    \item \textbf{True Negatives ($TN$):} Pedidos legítimos que foram permitidos pelo WAF.
+    \item \textbf{False Negatives ($FN$):} Ataques que contornaram a deteção e foram aceites.
+\end{itemize}
+
+\subsection{Métricas de Deteção}
+A \textbf{Precisão} traduz a fração de bloqueios efetuados que eram efetivamente maliciosos:
+\begin{equation}
+    \text{Precisão} = \frac{TP}{TP + FP}
+\end{equation}
+
+A \textbf{Sensibilidade} mede a percentagem do total de ataques que o sistema conseguiu travar:
+\begin{equation}
+    \text{Sensibilidade} = \frac{TP}{TP + FN}
+\end{equation}
+
+O \textbf{F1-Score} consiste na média harmónica entre a precisão e a sensibilidade:
+\begin{equation}
+    \text{F1-Score} = 2 \times \frac{\text{Precisão} \times \text{Sensibilidade}}{\text{Precisão} + \text{Sensibilidade}}
+\end{equation}
+
+A \textbf{Especificidade} (Taxa de Verdadeiros Negativos) avalia a capacidade do WAF permitir corretamente o tráfego legítimo:
+\begin{equation}
+    \text{Especificidade} = \frac{TN}{TN + FP}
+\end{equation}
+
+Uma vez que os conjuntos de dados nos testes de segurança apresentam frequentemente desbalanceamento substancial, recorre-se à \textbf{Acurácia Balanceada} (\textit{Balanced Accuracy}), evitando distorções provocadas pela acurácia simples:
+\begin{equation}
+    \text{BA} = \frac{\text{Sensibilidade} + \text{Especificidade}}{2} = \frac{1}{2} \left( \frac{TP}{TP + FN} + \frac{TN}{TN + FP} \right)
+\end{equation}
+
+\subsection{Métricas de Desempenho e Latência}
+A sobrecarga de processamento introduzida pela inspeção profunda de pacotes é quantificada pela diferença do tempo médio de resposta ($\Delta L$) com o motor de inspeção ativo ($L_{\text{WAF}}$) contra o inativo ($L_{\text{Base}}$):
+\begin{equation}
+    \Delta L = L_{\text{WAF}} - L_{\text{Base}} = \frac{1}{N}\sum_{i=1}^{N} t_{i}^{(\text{WAF})} - \frac{1}{M}\sum_{j=1}^{M} t_{j}^{(\text{Base})}
+\end{equation}
+
+% ==========================================
+% 5. Metodologia e Repositório
+% ==========================================
+\clearpage
+\section{Metodologia e Repositório Online}
+\label{sec:metodologia}
+
+\subsection{Ambiente de Prova de Conceito}
+A arquitetura prática planeada para a Parte 2 integrará:
+\begin{enumerate}
+    \item Um contentor \textbf{Nginx com ModSecurity v3} configurado como \textit{Reverse Proxy}.
+    \item Um contentor com a aplicação vulnerável \textbf{DVWA} (\textit{Damn Vulnerable Web Application}).
+    \item Ferramentas de injeção e teste de carga (\textit{OWASP ZAP}, \textit{sqlmap}, \textit{cURL} e \textit{Apache Benchmark}).
+\end{enumerate}
+
+\subsection{Repositório de Documentação (GitHub)}
+Para cumprir as diretrizes de armazenamento de resultados, todo o projeto encontra-se documentado no repositório da equipa: \url{https://github.com/JoaOliveira21/Projeto_SRSI}
+
+% ==========================================
+% 6. Conclusões e Trabalho Futuro
+% ==========================================
+\clearpage
+\section{Conclusões e Trabalho Futuro}
+\label{sec:conclusao}
+A elaboração da parte teórica permitiu estruturar os conceitos de segurança em aplicações Web e estabelecer uma base de comparação sólida entre soluções de WAF. Foram colocadas as equações matemáticas que servirão de critério quantitativo de avaliação de desempenho e eficácia.
+
+Na Parte 2 do trabalho prático, será implementado o ambiente virtualizado em Docker, procedendo-se aos testes de injeção sistemáticos, medição de latência com o Apache Benchmark e extração dos registos de auditoria do ModSecurity.
+
+% ==========================================
+% Referências
+% ==========================================
+\clearpage
+\begin{thebibliography}{99}
+
+\bibitem{owasp_top10}
+OWASP Foundation, ``OWASP Top 10: The Ten Most Critical Web Application Security Risks,'' \url{https://owasp.org/www-project-top-ten/}, 2021.
+
+\bibitem{modsec_crs}
+C. Folini and W. Blume, \textit{OWASP ModSecurity Core Rule Set (CRS) Official Documentation}, OWASP Foundation, 2023.
+
+\bibitem{alenezi2020}
+M. Alenezi and H. S. S. Al-Dhafer, ``Effectiveness of Web Application Firewalls: A Comparative Study of Open-Source Solutions,'' \textit{International Journal of Advanced Computer Science and Applications (IJACSA)}, vol. 11, no. 5, pp. 245--252, 2020.
+
+\bibitem{sharma2021}
+P. Sharma and R. K. Patel, ``Detection and Mitigation of SQL Injection and Cross-Site Scripting Attacks Using ModSecurity and Machine Learning,'' in \textit{2021 IEEE International Conference on Computing, Communication, and Intelligent Systems (ICCCIS)}, pp. 412--417, 2021.
+
+\bibitem{varghese2019}
+A. Varghese and T. Jacob, ``Performance and Latency Evaluation of Web Application Firewalls in Cloud and Virtualized Environments,'' \textit{Journal of Information Security and Applications}, vol. 48, pp. 102--111, 2019.
+
+\end{thebibliography}
+
+\end{document}
