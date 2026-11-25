@@ -1,0 +1,21 @@
+id	category	endpoint	method	param	payload	description
+LEG-01	Benign_SQLi_Endpoint	/vulnerabilities/sqli/	GET	id	1	Valid numeric user ID lookup
+LEG-02	Benign_SQLi_Endpoint	/vulnerabilities/sqli/	GET	id	2	Valid numeric user ID lookup
+LEG-03	Benign_SQLi_Endpoint	/vulnerabilities/sqli/	GET	id	3	Valid numeric user ID lookup
+LEG-04	Benign_SQLi_Endpoint	/vulnerabilities/sqli/	GET	id	4	Valid numeric user ID lookup
+LEG-05	Benign_SQLi_Endpoint	/vulnerabilities/sqli/	GET	id	5	Valid numeric user ID lookup
+LEG-06	Benign_Blind_Endpoint	/vulnerabilities/sqli_blind/	GET	id	1	Valid numeric user ID on blind endpoint
+LEG-07	Benign_Blind_Endpoint	/vulnerabilities/sqli_blind/	GET	id	2	Valid numeric user ID on blind endpoint
+LEG-08	Benign_XSS_Reflected	/vulnerabilities/xss_r/	GET	name	Joao	Simple first name
+LEG-09	Benign_XSS_Reflected	/vulnerabilities/xss_r/	GET	name	Daniel Nunes	Full name with space
+LEG-10	Benign_XSS_Reflected	/vulnerabilities/xss_r/	GET	name	Guilherme Alves	Full name with space
+LEG-11	Benign_XSS_Reflected	/vulnerabilities/xss_r/	GET	name	Ana Maria Silva	Portuguese full name
+LEG-12	Benign_XSS_Reflected	/vulnerabilities/xss_r/	GET	name	user123@iscte-iul.pt	Academic email address
+LEG-13	Benign_XSS_Stored	/vulnerabilities/xss_s/	POST	mtxMessage	Ola equipa, este e um comentario de teste.	Normal guestbook comment
+LEG-14	Benign_XSS_Stored	/vulnerabilities/xss_s/	POST	mtxMessage	Projeto de SRSI 2026 - Analise de WAF ModSecurity.	Project description text
+LEG-15	Benign_XSS_Stored	/vulnerabilities/xss_s/	POST	txtName	Joao Oliveira	Normal author name in guestbook
+LEG-16	Benign_XSS_Stored	/vulnerabilities/xss_s/	POST	mtxMessage	Por favor, selecione a opcao A ou B na reuniao de amanha.	Natural language containing common words
+LEG-17	Benign_EdgeCase	/vulnerabilities/xss_s/	POST	mtxMessage	Nota: verificar se a taxa e inferior a 5% (ex: 2 < 5).	Legitimate text with comparison symbol (tests FP)
+LEG-18	Benign_EdgeCase	/vulnerabilities/xss_s/	POST	mtxMessage	Please select the union of both sets from the table.	Legitimate English sentence with SQL keywords (tests FP)
+LEG-19	Benign_EdgeCase	/vulnerabilities/xss_r/	GET	name	O'Connor	Surname with apostrophe (tests FP)
+LEG-20	Benign_EdgeCase	/vulnerabilities/xss_s/	POST	mtxMessage	Contato: suporte@exemplo.pt | Ref: #2026-01	Legitimate message with punctuation and hash

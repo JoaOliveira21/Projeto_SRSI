@@ -1,0 +1,57 @@
+services:
+  # 1. Aplicacao Alvo Vulneravel (DVWA)
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    container_name: srsi_dvwa
+    ports:
+      # Bound apenas a localhost (127.0.0.1) para nao expor a aplicacao vulneravel na rede
+      - "127.0.0.1:8081:80"
+    networks:
+      - srsi_net
+    restart: unless-stopped
+
+  # 2. Reverse Proxy Nginx SEM WAF (Baseline para medir L_Base e confirmar ataques)
+  proxy-base:
+    image: nginx:alpine
+    container_name: srsi_proxy_base
+    ports:
+      - "127.0.0.1:8082:80"
+    volumes:
+      - ./nginx/baseline.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - dvwa
+    networks:
+      - srsi_net
+    restart: unless-stopped
+
+  # 3. Reverse Proxy Nginx COM ModSecurity v3 + OWASP CRS (WAF para medir L_WAF e deteção)
+  waf:
+    image: owasp/modsecurity-crs:nginx
+    container_name: srsi_waf
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      BACKEND: "http://dvwa:80"
+      PORT: "8080"
+      MODSEC_RULE_ENGINE: "${MODSEC_RULE_ENGINE:-On}"
+      BLOCKING_PARANOIA: "${BLOCKING_PARANOIA:-1}"
+      ANOMALY_INBOUND: "${ANOMALY_INBOUND:-5}"
+      ANOMALY_OUTBOUND: "${ANOMALY_OUTBOUND:-4}"
+      MODSEC_AUDIT_ENGINE: "${MODSEC_AUDIT_ENGINE:-RelevantOnly}"
+      MODSEC_AUDIT_LOG_FORMAT: "${MODSEC_AUDIT_LOG_FORMAT:-JSON}"
+      MODSEC_AUDIT_LOG: "${MODSEC_AUDIT_LOG:-/var/log/modsecurity/audit.log}"
+      MODSEC_AUDIT_LOG_PARTS: "${MODSEC_AUDIT_LOG_PARTS:-ABIJDEFHZ}"
+    volumes:
+      - ./logs:/var/log/modsecurity
+      - ./modsecurity/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:/etc/modsecurity.d/owasp-crs/rules/REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf:ro
+      - ./modsecurity/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf:/etc/modsecurity.d/owasp-crs/rules/RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf:ro
+    depends_on:
+      - dvwa
+    networks:
+      - srsi_net
+    restart: unless-stopped
+
+networks:
+  srsi_net:
+    name: srsi_net
+    driver: bridge

