@@ -88,7 +88,7 @@
 \addcontentsline{toc}{section}{Resumo}
 Este documento apresenta a segunda fase (componente prática) do projeto de Segurança em Redes e Sistemas de Informação, dando continuidade ao enquadramento teórico e ao modelo formal definidos na Fase 1. Foi implementado um ambiente virtualizado isolado em \textit{Docker} composto pela aplicação intencionalmente vulnerável \textit{Damn Vulnerable Web Application} (DVWA), um \textit{reverse proxy} Nginx sem proteção (\textit{baseline}) e um \textit{reverse proxy} Nginx equipado com o \textit{Web Application Firewall} (WAF) \textit{ModSecurity} v3 e o conjunto de regras OWASP \textit{Core Rule Set} (CRS).
 
-Com recurso a conjuntos reproduzíveis de pedidos maliciosos (\textit{SQL Injection} e \textit{Cross-Site Scripting}, incluindo variantes de evasão) e de tráfego legítimo, bem como às ferramentas \texttt{sqlmap}, \texttt{cURL}, \textit{OWASP ZAP}/\textit{Burp Suite} e \textit{Apache Benchmark} (\texttt{ab}), são avaliadas a eficácia de deteção através da matriz de confusão (Precisão, Sensibilidade, \textit{F1-Score}, Especificidade e Acurácia Balanceada), a análise dos registos estruturados (\texttt{audit.log}) e o impacto na latência ($\Delta L$). \todo{Resumo final a ajustar após recolha dos valores experimentais: ex. taxa global de deteção e $\Delta L$ medido.}
+Com recurso a conjuntos reproduzíveis de pedidos maliciosos (\textit{SQL Injection} e \textit{Cross-Site Scripting}, incluindo variantes de evasão) e de tráfego legítimo, bem como às ferramentas \texttt{sqlmap}, \texttt{cURL} e \textit{Apache Benchmark} (\texttt{ab}), são avaliadas a eficácia de deteção através da matriz de confusão (Precisão, Sensibilidade, \textit{F1-Score}, Especificidade e Acurácia Balanceada), a análise dos registos estruturados (\texttt{audit.log}) e o impacto na latência ($\Delta L$). Na primeira ronda experimental com \textit{Paranoia Level 1}, o WAF obteve uma taxa de deteção de 100\% ($TP = 28$, $FN = 0$) sem falsos positivos ($FP = 0$, $TN = 20$, \textit{F1-Score} $= 1{,}0000$), introduzindo uma sobrecarga média de latência $\Delta L = +1{,}909\text{ ms}$ ($+14{,}66\%$) para concorrência $c = 10$ e $\Delta L = +8{,}898\text{ ms}$ ($+13{,}78\%$) para $c = 50$ ($N = 500$ pedidos).
 
 \vspace{0.8cm}
 \noindent \textbf{Palavras-chave:} Segurança Web, WAF, \textit{ModSecurity} v3, OWASP CRS, DVWA, \textit{Docker}, \textit{SQL Injection}, XSS, \textit{Benchmarking}.
@@ -149,7 +149,7 @@ O restante documento encontra-se organizado da seguinte forma: a Secção \ref{s
 \section{Arquitetura e Implementação do Ambiente Experimental}
 \label{sec:arquitetura}
 
-Para assegurar reprodutibilidade e isolamento durante os ensaios ofensivos, toda a infraestrutura foi definida de forma declarativa em \textit{Docker Compose} na pasta \texttt{SRC/} do repositório do grupo.\footnote{Repositório do projeto: \url{https://github.com/JoaOliveira21/Projeto_SRSI}}
+Para assegurar reprodutibilidade e isolamento durante os ensaios ofensivos, toda a infraestrutura foi definida de forma declarativa em \textit{Docker Compose} na pasta \texttt{SRC/} do repositório do grupo.
 
 \subsection{Topologia de Contentores e Isolamento de Rede}
 O ambiente é composto por três serviços interligados através de uma rede interna dedicada (\texttt{srsi\_net}), com todas as portas publicadas no hospedeiro restringidas exclusivamente à interface local (\texttt{127.0.0.1}) para impedir a exposição da aplicação vulnerável na rede externa:
@@ -162,12 +162,13 @@ O ambiente é composto por três serviços interligados através de uma rede int
 
 \begin{figure}[h!]
     \centering
-    \placeholderfig{Arquitetura do Ambiente em Docker}{Inserir diagrama da topologia (Cliente / Ferramentas de Teste $\rightarrow$ \texttt{proxy-base:8082} e \texttt{waf:8080} $\rightarrow$ \texttt{dvwa:80} na rede \texttt{srsi\_net}) ou captura de ecrã de \texttt{docker compose ps}.}
+    \includegraphics[width=0.95\textwidth]{images/arquitetura_docker.png}
     \caption{Arquitetura experimental em contentores \textit{Docker} para avaliação do WAF.}
     \label{fig:arquitetura}
 \end{figure}
 
-\subsection{Configuração do \textit{ModSecurity} v3 e Auditoria (Fase 5)}
+\newpage
+\subsection{Configuração do \textit{ModSecurity} v3 e Auditoria}
 O comportamento do WAF é parametrizado através do ficheiro \texttt{SRC/.env} e montagens de volume no \texttt{docker-compose.yml}:
 \begin{itemize}
     \item \textbf{Modo de Operação:} \texttt{MODSEC\_RULE\_ENGINE=On}, com modo de pontuação de anomalias (\textit{Anomaly Scoring}) configurado com patamares padrão \texttt{ANOMALY\_INBOUND=5} e \texttt{ANOMALY\_OUTBOUND=4}.
@@ -187,32 +188,35 @@ O comportamento do WAF é parametrizado através do ficheiro \texttt{SRC/.env} e
 Para garantir condições homogéneas entre os ensaios no \textit{baseline} e no WAF, o script de avaliação automatizado executa previamente os seguintes passos sobre ambos os caminhos HTTP:
 \begin{enumerate}
     \item Verificação e inicialização da base de dados da DVWA através do \textit{endpoint} \texttt{/setup.php} (com extração automática do token anti-CSRF \texttt{user\_token}).
-    \item Autenticação programática em \texttt{/login.php} com as credenciais padrão (\texttt{admin}/\texttt{password}).
+    \item Autenticação em \texttt{/login.php} com as credenciais padrão (\texttt{admin}/\texttt{password}).
     \item Definição explícita do nível de segurança da DVWA para \texttt{low} via \texttt{/security.php} e respetivo \textit{cookie} de sessão (\texttt{PHPSESSID} e \texttt{security=low}).
 \end{enumerate}
 
 \subsection{Desenho dos Conjuntos de Teste (Ataques e Tráfego Legítimo)}
 Em conformidade com a formulação matemática da Secção 4 da Fase 1, a validação do WAF exige tanto pedidos maliciosos (para contabilizar $TP$ e $FN$) como pedidos legítimos (para contabilizar $TN$ e $FP$). Foram construídos dois conjuntos determinísticos em formato TSV na pasta \texttt{SRC/datasets/}:
 
-\begin{table}[h!]
+\begin{table}[htbp]
 \centering
+\small
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.15}
 \caption{Composição dos conjuntos de teste utilizados na avaliação automatizada.}
 \label{tab:composicao_datasets}
-\begin{tabularx}{\textwidth}{l l c X}
+\begin{tabularx}{\textwidth}{l >{\raggedright\arraybackslash}p{3.0cm} c >{\raggedright\arraybackslash}X}
 \toprule
-\textbf{Conjunto / Categoria} & \textbf{\textit{Endpoint} DVWA} & \textbf{Nº Casos} & \textbf{Objetivo / Exemplos de Vetores} \\
+\textbf{Categoria} & \textbf{\textit{Endpoint} DVWA} & \textbf{Nº} & \textbf{Objetivo / Exemplos de Vetores} \\
 \midrule
-\texttt{SQLi\_InBand} & \texttt{/vulnerabilities/sqli/} & 6 & Tautologias (\texttt{' OR '1'='1}), extração via \texttt{UNION SELECT} e enumeração (\texttt{ORDER BY}). \\
-\texttt{SQLi\_Blind} & \texttt{/vulnerabilities/sqli\_blind/} & 5 & Inferência booleana (\texttt{AND 1=1}) e temporal (\texttt{SLEEP(2)}, \texttt{IF(...,SLEEP(2),0)}). \\
-\texttt{SQLi\_Evasion} & \texttt{/vulnerabilities/sqli/} & 4 & Comentários \textit{inline} (\texttt{/**/}), comentários condicionais MySQL (\texttt{/*!50000OR*/}) e tabulação (\texttt{\%09}). \\
-\texttt{XSS\_Reflected} & \texttt{/vulnerabilities/xss\_r/} & 4 & \textit{Tags} \texttt{<script>}, eventos \texttt{onerror}/\texttt{onload} e quebra de atributo (\texttt{">}). \\
-\texttt{XSS\_Stored} & \texttt{/vulnerabilities/xss\_s/} & 4 & Injeção persistente via \texttt{POST} nos campos \texttt{mtxMessage} e \texttt{txtName}. \\
-\texttt{XSS\_Evasion} & \texttt{/vulnerabilities/xss\_r/} & 5 & Mistura de maiúsculas/minúsculas, separador \texttt{/}, \texttt{<details ontoggle>} e codificação em entidades HTML. \\
+\texttt{SQLi\_InBand} & \texttt{/vulnerabilities/\allowbreak sqli/} & 6 & Tautologias (\texttt{' OR '1'='1}), extração via \texttt{UNION SELECT} e enumeração (\texttt{ORDER BY}). \\
+\texttt{SQLi\_Blind} & \texttt{/vulnerabilities/\allowbreak sqli\_blind/} & 5 & Inferência booleana (\texttt{AND 1=1}) e temporal (\texttt{SLEEP(2)}, \texttt{IF(...,SLEEP(2),0)}). \\
+\texttt{SQLi\_Evasion} & \texttt{/vulnerabilities/\allowbreak sqli/} & 4 & Comentários \textit{inline} (\texttt{/**/}), comentários condicionais MySQL (\texttt{/*!50000OR*/}) e tabulação (\texttt{\%09}). \\
+\texttt{XSS\_Reflected} & \texttt{/vulnerabilities/\allowbreak xss\_r/} & 4 & \textit{Tags} \texttt{<script>}, eventos \texttt{onerror}/\texttt{onload} e quebra de atributo (\texttt{"{}>}). \\
+\texttt{XSS\_Stored} & \texttt{/vulnerabilities/\allowbreak xss\_s/} & 4 & Injeção persistente via \texttt{POST} nos campos \texttt{mtxMessage} e \texttt{txtName}. \\
+\texttt{XSS\_Evasion} & \texttt{/vulnerabilities/\allowbreak xss\_r/} & 5 & Mistura de maiúsculas/minúsculas, separador \texttt{/}, \texttt{<details ontoggle>} e entidades HTML. \\
 \midrule
 \textbf{Total Ataques} & --- & \textbf{28} & \textbf{Avaliação de $TP$ (HTTP 403) e $FN$ (não bloqueado).} \\
 \midrule
 \texttt{Legítimo (Normal)} & Todos os anteriores & 16 & IDs numéricos válidos, nomes próprios, \textit{emails} académicos e comentários normais no \textit{Guestbook}. \\
-\texttt{Legítimo (Fronteira)} & \texttt{xss\_r}, \texttt{xss\_s} & 4 & Casos realistas suscetíveis de gerar falsos positivos: apóstrofo (\texttt{O'Connor}), operador (\texttt{2 < 5}) e palavras como \textit{select}/\textit{union} em frases naturais. \\
+\texttt{Legítimo (Fronteira)} & \texttt{xss\_r}, \texttt{xss\_s} & 4 & Casos suscetíveis a falsos positivos: apóstrofo (\texttt{O'Connor}), operador (\texttt{2 < 5}) e termos como \textit{select}/\textit{union}. \\
 \midrule
 \textbf{Total Legítimo} & --- & \textbf{20} & \textbf{Avaliação de $TN$ (permitido) e $FP$ (HTTP 403 indevido).} \\
 \bottomrule
@@ -235,22 +239,38 @@ Para além do motor de execução em lote (\texttt{scripts/run\_evaluation.py}),
 \label{sec:resultados}
 
 \subsection{Validação da Linha de Base (Sem WAF)}
-Numa primeira etapa, todos os 28 vetores de ataque foram submetidos através do \textit{proxy} sem proteção (\texttt{http://127.0.0.1:8082}). Confirmou-se que os pedidos maliciosos atingiram a DVWA com código de resposta HTTP \todo{200}, permitindo:
+Numa primeira etapa, todos os 28 vetores de ataque foram submetidos através do \textit{proxy} sem proteção (\texttt{http://127.0.0.1:8082}). Confirmou-se que todos os pedidos maliciosos atingiram diretamente a DVWA sem bloqueio (25 casos com resposta HTTP \texttt{200} e 3 casos de \texttt{SQLi\_Blind} --- \texttt{ATK-08}, \texttt{ATK-09} e \texttt{ATK-10} --- com HTTP \texttt{404}, comportamento nativo do módulo \texttt{sqli\_blind} da DVWA quando a condição SQL injetada devolve zero registos), permitindo:
 \begin{itemize}
-    \item A enumeração de utilizadores e \textit{hashes} da base de dados através de SQLi \textit{In-Band} (\texttt{ATK-03}, \texttt{ATK-04}) e com recurso ao \texttt{sqlmap};
-    \item A indução de atrasos de \todo{$\approx 2$ segundos} nos ataques \textit{Time-Based Blind} (\texttt{ATK-09}, \texttt{ATK-10});
-    \item A reflexão e persistência de código JavaScript arbitrário nos módulos de XSS \textit{Reflected} e \textit{Stored}.
+    \item A confirmação da exploração automática de SQLi \textit{In-Band} com recurso ao \texttt{sqlmap} (\texttt{--level=2 --risk=1 --dbs}) sobre \texttt{http://proxy-base:80/vulnerabilities/sqli/?id=1\&Submit=Submit}: com 62 pedidos HTTP, a ferramenta identificou 4 técnicas de injeção no parâmetro \texttt{id} (\textit{boolean-based blind}, \textit{error-based}, \textit{time-based blind} com \texttt{SLEEP(5)} e \textit{UNION query} com 2 colunas), identificou o SGBD \textit{MySQL >= 5.1 (MariaDB fork)} e enumerou as bases de dados \texttt{dvwa} e \texttt{information\_schema};
+    \item A execução direta dos \textit{payloads} de enumeração e extração (\texttt{ATK-03}, \texttt{ATK-04}) no módulo \texttt{sqli} sem qualquer filtragem;
+    \item A aceitação e processamento sem sanitização dos \textit{payloads} de XSS \textit{Reflected} (\texttt{ATK-16}--\texttt{ATK-19}, \texttt{ATK-24}--\texttt{ATK-28}) e XSS \textit{Stored} (\texttt{ATK-20}--\texttt{ATK-23}) com HTTP \texttt{200}.
 \end{itemize}
 
-\begin{figure}[h!]
-    \centering
-    \placeholderfig{Evidência de Exploração Baseline (Sem WAF)}{Inserir captura de ecrã do \texttt{sqlmap} a enumerar bases de dados/tabelas da DVWA sem WAF ou resposta \texttt{cURL} / navegador a comprovar execução de SQLi e XSS em \texttt{proxy-base:8082}.}
-    \caption{Exploração bem-sucedida da DVWA na ausência do WAF (\textit{Baseline}).}
-    \label{fig:baseline_exploit}
-\end{figure}
+\begin{lstlisting}[caption={Excerto da execução do \texttt{sqlmap} contra o \textit{Baseline} (\texttt{proxy-base:80}), comprovando a exploração bem-sucedida da DVWA.},label={lst:sqlmap_baseline}]
+GET http://proxy-base:80/vulnerabilities/sqli/?id=1&Submit=Submit
+Cookie: PHPSESSID=9h4ohrbrclhbpmmqmn3o0pglh7; security=low
+...
+sqlmap identified the following injection point(s) with a total of 62 HTTP(s) requests:
+---
+Parameter: id (GET)
+    Type: boolean-based blind
+    Title: AND boolean-based blind - WHERE or HAVING clause (subquery - comment)
+    Type: error-based
+    Title: MySQL >= 5.1 AND error-based - WHERE, HAVING, ORDER BY or GROUP BY clause (EXTRACTVALUE)
+    Type: time-based blind
+    Title: MySQL >= 5.0.12 AND time-based blind (query SLEEP)
+    Type: UNION query
+    Title: Generic UNION query (NULL) - 2 columns
+---
+back-end DBMS: MySQL >= 5.1 (MariaDB fork)
+[INFO] fetching database names
+available databases [2]:
+[*] dvwa
+[*] information_schema
+\end{lstlisting}
 
 \subsection{Eficácia de Deteção e Matriz de Confusão (\textit{Paranoia Level 1})}
-Com o WAF ativo (\texttt{MODSEC\_RULE\_ENGINE=On}, \texttt{BLOCKING\_PARANOIA=1}), executou-se o conjunto completo de 48 pedidos (28 ataques e 20 legítimos). Os resultados obtidos a partir de \texttt{results/metrics\_summary.json} e \texttt{results/detailed\_results.csv} encontram-se sintetizados nas Tabelas \ref{tab:matriz_confusao_pl1}, \ref{tab:metricas_pl1} e \ref{tab:resultados_categoria}.
+Com o WAF ativo (\texttt{MODSEC\_RULE\_ENGINE=On}, \texttt{BLOCKING\_PARANOIA=1}, \textit{OWASP CRS 4.30.0}), executou-se o conjunto completo de 48 pedidos (28 ataques e 20 legítimos). Os resultados obtidos a partir de \texttt{results/metrics\_summary.json} e \texttt{results/detailed\_results.csv} encontram-se sintetizados nas Tabelas \ref{tab:matriz_confusao_pl1}, \ref{tab:metricas_pl1} e \ref{tab:resultados_categoria}.
 
 \begin{table}[h!]
 \centering
@@ -260,8 +280,8 @@ Com o WAF ativo (\texttt{MODSEC\_RULE\_ENGINE=On}, \texttt{BLOCKING\_PARANOIA=1}
 \toprule
  & \textbf{Bloqueado pelo WAF (HTTP 403)} & \textbf{Permitido pelo WAF} & \textbf{Total} \\
 \midrule
-\textbf{Ataque Real (28)} & $TP = \todo{XX}$ & $FN = \todo{XX}$ & 28 \\
-\textbf{Tráfego Legítimo (20)} & $FP = \todo{XX}$ & $TN = \todo{XX}$ & 20 \\
+\textbf{Ataque Real (28)} & $TP = 28$ & $FN = 0$ & 28 \\
+\textbf{Tráfego Legítimo (20)} & $FP = 0$ & $TN = 20$ & 20 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -274,11 +294,11 @@ Com o WAF ativo (\texttt{MODSEC\_RULE\_ENGINE=On}, \texttt{BLOCKING\_PARANOIA=1}
 \toprule
 \textbf{Métrica} & \textbf{Valor Obtido} & \textbf{Interpretação Experimental} \\
 \midrule
-Precisão ($\frac{TP}{TP + FP}$) & \todo{0.XXXX} & Fração dos bloqueios que corresponderam a ataques reais. \\
-Sensibilidade / \textit{Recall} ($\frac{TP}{TP + FN}$) & \todo{0.XXXX} & Percentagem do total de ataques efetivamente travada. \\
-\textit{F1-Score} & \todo{0.XXXX} & Média harmónica entre Precisão e Sensibilidade. \\
-Especificidade ($\frac{TN}{TN + FP}$) & \todo{0.XXXX} & Capacidade de permitir tráfego legítimo sem bloqueios indevidos. \\
-Acurácia Balanceada (BA) & \todo{0.XXXX} & Desempenho equilibrado entre deteção de ataques e usabilidade. \\
+Precisão ($\frac{TP}{TP + FP}$) & 1.0000 & 100\% dos bloqueios corresponderam a ataques reais (zero falsos alarmes). \\
+Sensibilidade / \textit{Recall} ($\frac{TP}{TP + FN}$) & 1.0000 & Todos os 28 vetores de ataque testados foram travados com HTTP 403. \\
+\textit{F1-Score} & 1.0000 & Equilíbrio ótimo entre Precisão e Sensibilidade na ronda PL1. \\
+Especificidade ($\frac{TN}{TN + FP}$) & 1.0000 & Todos os 20 pedidos legítimos foram encaminhados sem bloqueios indevidos. \\
+Acurácia Balanceada (BA) & 1.0000 & Desempenho máximo uniforme entre deteção de ataques e disponibilidade. \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -287,109 +307,135 @@ Acurácia Balanceada (BA) & \todo{0.XXXX} & Desempenho equilibrado entre deteç�
 \centering
 \caption{Desagregação dos resultados por categoria de teste (\textit{Paranoia Level 1}).}
 \label{tab:resultados_categoria}
-\begin{tabular}{l c c c c c}
+\begin{tabularx}{\textwidth}{l c c c c X}
 \toprule
-\textbf{Categoria} & \textbf{Total} & \textbf{TP / TN} & \textbf{FN / FP} & \textbf{Taxa de Sucesso (\%)} & \textbf{Observações} \\
+\textbf{Categoria} & \textbf{Total} & \textbf{TP / TN} & \textbf{FN / FP} & \textbf{Taxa (\%)} & \textbf{Observações} \\
 \midrule
-\texttt{SQLi\_InBand} & 6 & \todo{X} & \todo{X} & \todo{XX.X\%} & \todo{Ex: bloqueado por regras 942xxx} \\
-\texttt{SQLi\_Blind} & 5 & \todo{X} & \todo{X} & \todo{XX.X\%} & \todo{Ex: SLEEP/booleano bloqueado} \\
-\texttt{SQLi\_Evasion} & 4 & \todo{X} & \todo{X} & \todo{XX.X\%} & \todo{Indicar se houve bypass} \\
-\texttt{XSS\_Reflected} & 4 & \todo{X} & \todo{X} & \todo{XX.X\%} & \todo{Ex: bloqueado por regras 941xxx} \\
-\texttt{XSS\_Stored} & 4 & \todo{X} & \todo{X} & \todo{XX.X\%} & \todo{Inspeção do corpo POST (Fase 2)} \\
-\texttt{XSS\_Evasion} & 5 & \todo{X} & \todo{X} & \todo{XX.X\%} & \todo{Indicar eventuais FN} \\
-\texttt{Legítimo (Normal + Fronteira)} & 20 & \todo{X} & \todo{X} & \todo{XX.X\%} & \todo{Indicar eventuais FP em LEG-17..20} \\
+\texttt{SQLi\_InBand} & 6 & 6 & 0 & 100.0\% & Bloqueio em Fase 2 (regras \texttt{942100}, \texttt{942190}, \texttt{942360}). \\
+\texttt{SQLi\_Blind} & 5 & 5 & 0 & 100.0\% & Bloqueio de \texttt{SLEEP()}/\texttt{IF} e inferência booleana (\texttt{942160}, \texttt{942100}). \\
+\texttt{SQLi\_Evasion} & 4 & 4 & 0 & 100.0\% & Mutações com \texttt{/**/}, \texttt{/*!50000OR*/} e tabulação detetadas em PL1. \\
+\texttt{XSS\_Reflected} & 4 & 4 & 0 & 100.0\% & Bloqueio por \texttt{libinjection} (\texttt{941100}) e filtros \texttt{941110}/\texttt{941120}. \\
+\texttt{XSS\_Stored} & 4 & 4 & 0 & 100.0\% & Inspeção do corpo \texttt{POST} (Fase 2) em \texttt{mtxMessage} e \texttt{txtName}. \\
+\texttt{XSS\_Evasion} & 5 & 5 & 0 & 100.0\% & \textit{Case mixing}, barra \texttt{/}, \texttt{ontoggle} e entidades HTML detetados. \\
+\texttt{Legítimo (20)} & 20 & 20 & 0 & 100.0\% & Todos os 16 normais e 4 casos de fronteira (\texttt{LEG-17}--\texttt{20}) com HTTP 200. \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
-\begin{figure}[h!]
-    \centering
-    \placeholderfig{Bloqueio de Ferramentas Automatizadas pelo WAF}{Inserir captura de ecrã do \texttt{sqlmap} a ser bloqueado (HTTP 403 / deteção de WAF) e/ou do \textit{OWASP ZAP}/\textit{Burp Suite} face a \texttt{waf:8080}.}
-    \caption{Comportamento de ferramentas automatizadas de ataque perante o WAF ativo.}
-    \label{fig:waf_tools}
-\end{figure}
+Adicionalmente, quando o \texttt{sqlmap} foi executado contra o WAF ativo (\texttt{http://waf:8080/\allowbreak vulnerabilities/\allowbreak sqli/?\allowbreak id=1\&\allowbreak Submit=Submit}), todas as tentativas de exploração foram bloqueadas: o WAF detetou imediatamente proteção ativa (incluindo o \textit{User-Agent} de \textit{scanner} pela regra \texttt{913100} e as sondas SQLi pela família \texttt{942xxx}), devolvendo HTTP \texttt{403 Forbidden} em 377 respostas consecutivas e impedindo a identificação de qualquer ponto de injeção.
+
+\begin{lstlisting}[caption={Excerto da execução do \texttt{sqlmap} contra o WAF (\texttt{waf:8080}), evidenciando bloqueio massivo com HTTP 403.},label={lst:sqlmap_waf}]
+GET http://waf:8080/vulnerabilities/sqli/?id=1&Submit=Submit
+Cookie: PHPSESSID=cu4rtl7m6b3g32jo8a9evcp895; security=low
+[WARNING] the web server responded with an HTTP error code (403) which could interfere with the results of the tests
+...
+[WARNING] GET parameter 'id' does not seem to be injectable
+[ERROR] all tested parameters do not appear to be injectable.
+[WARNING] HTTP error codes detected during run:
+403 (Forbidden) - 377 times
+\end{lstlisting}
 
 \subsection{Análise de Evasão, \textit{Paranoia Levels} e Afinação (\textit{Tuning})}
-Para avaliar empiricamente o compromisso entre segurança e falsos positivos descrito na literatura, repetiu-se a avaliação elevando \texttt{BLOCKING\_PARANOIA=2} e, posteriormente, aplicando regras de exceção/afinação em \texttt{SRC/modsecurity/}. A Tabela \ref{tab:comparacao_pl} compara os três cenários.
+Para avaliar empiricamente o compromisso entre segurança e falsos positivos descrito na literatura, a Tabela \ref{tab:comparacao_pl} regista os valores obtidos nesta primeira ronda em \textit{Paranoia Level 1} (\texttt{BLOCKING\_PARANOIA=1}) e reserva os cenários de comparação para a ronda seguinte com \texttt{BLOCKING\_PARANOIA=2} e afinação em \texttt{SRC/modsecurity/}.
 
 \begin{table}[h!]
 \centering
-\caption{Comparação de desempenho do WAF entre \textit{Paranoia Level 1}, \textit{Level 2} e pós-\textit{tuning}.}
+\caption{Comparação de desempenho do WAF entre \textit{Paranoia Level 1} (executado), \textit{Level 2} e pós-\textit{tuning}.}
 \label{tab:comparacao_pl}
 \begin{tabular}{l c c c c c c}
 \toprule
 \textbf{Configuração} & \textbf{TP} & \textbf{FN} & \textbf{FP} & \textbf{TN} & \textbf{Sensibilidade} & \textbf{Especificidade} \\
 \midrule
-OWASP CRS PL1 (Padrão) & \todo{X} & \todo{X} & \todo{X} & \todo{X} & \todo{0.XXXX} & \todo{0.XXXX} \\
-OWASP CRS PL2 & \todo{X} & \todo{X} & \todo{X} & \todo{X} & \todo{0.XXXX} & \todo{0.XXXX} \\
-OWASP CRS PL2 + \textit{Tuning} & \todo{X} & \todo{X} & \todo{X} & \todo{X} & \todo{0.XXXX} & \todo{0.XXXX} \\
+OWASP CRS PL1 (Padrão) & 28 & 0 & 0 & 20 & 1.0000 & 1.0000 \\
+OWASP CRS PL2 & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} \\
+OWASP CRS PL2 + \textit{Tuning} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\todo{Descrever aqui quais os casos concretos de \texttt{attacks.tsv} que geraram FN em PL1 (se houver) e quais os casos de \texttt{legitimate.tsv} (ex.: \texttt{LEG-17}, \texttt{LEG-18} ou \texttt{LEG-19}) que geraram FP em PL2, explicando a regra de exceção (\texttt{ctl:ruleRemoveTargetById} ou \texttt{ctl:ruleRemoveById}) adicionada em \texttt{RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf}.}
+Nesta primeira ronda em PL1, não ocorreram falsos negativos nos conjuntos \texttt{SQLi\_Evasion} (\texttt{ATK-12} a \texttt{ATK-15}) nem \texttt{XSS\_Evasion} (\texttt{ATK-24} a \texttt{ATK-28}), bem como não se verificaram falsos positivos nos 4 casos de fronteira (\texttt{LEG-17} a \texttt{LEG-20}). Observou-se contudo nos registos de auditoria que a regra \texttt{920350} (\textit{Host header is a numeric IP address}) acumulou $+3$ pontos de anomalia (\textit{Notice}) em todos os pedidos enviados para \texttt{127.0.0.1:8080}: nos pedidos legítimos a pontuação total manteve-se em $3 < 5$ (abaixo do limiar \texttt{ANOMALY\_INBOUND=5}), mas em \textit{Paranoia Level 2} regras adicionais de deteção podem somar pontos suficientes sobre textos com apóstrofos (\texttt{LEG-19}) ou termos SQL naturais (\texttt{LEG-18}) para ultrapassar o limiar, motivando o ensaio futuro de PL2 e a eventual aplicação de exceções em \texttt{RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf}.
 
 \subsection{Análise dos Registos de Auditoria (\texttt{audit.log})}
-Na Fase 5 do ciclo de vida do \textit{ModSecurity}, todas as transações relevantes foram registadas em formato JSON em \texttt{SRC/logs/audit.log}. A Tabela \ref{tab:top_regras_crs} lista as regras do OWASP CRS mais frequentemente ativadas durante os ensaios.
+Na Fase 5 do ciclo de vida do \textit{ModSecurity}, todas as transações relevantes foram registadas em formato JSON em \texttt{SRC/logs/audit.log}. Durante a execução do conjunto de 48 casos de teste em \texttt{run\_evaluation.py} (que somou 55 transações HTTP incluindo inicialização de sessão DVWA, com 28 bloqueios HTTP \texttt{403}), a Tabela \ref{tab:top_regras_crs} sintetiza as regras do OWASP CRS mais frequentemente ativadas segundo \texttt{results/metrics\_summary.json}. Após a execução subsequente do \texttt{sqlmap}, o ficheiro \texttt{audit.log} atingiu 446 transações (405 respostas HTTP \texttt{403}), destacando-se ainda a regra \texttt{913100} (\textit{Found User-Agent associated with security scanner}) com 377 ativações.
 
 \begin{table}[h!]
 \centering
-\caption{Regras do OWASP CRS com maior número de ativações no \texttt{audit.log}.}
+\caption{Regras do OWASP CRS com maior número de ativações no \texttt{audit.log} durante a avaliação dos 48 casos.}
 \label{tab:top_regras_crs}
 \begin{tabularx}{\textwidth}{c c X c}
 \toprule
 \textbf{ID da Regra} & \textbf{Fase} & \textbf{Descrição / Mensagem} & \textbf{Ocorrências} \\
 \midrule
-\todo{942100} & \todo{2} & \todo{SQL Injection Attack Detected via libinjection} & \todo{XX} \\
-\todo{941100} & \todo{2} & \todo{XSS Attack Detected via libinjection} & \todo{XX} \\
-\todo{949110} & \todo{2} & \todo{Inbound Anomaly Score Exceeded (Total Score: ...)} & \todo{XX} \\
-\todo{...} & \todo{...} & \todo{Adicionar restantes regras de \texttt{metrics\_summary.json}} & \todo{XX} \\
+920350 & 1 & \textit{Host header is a numeric IP address} & 55 \\
+949110 & 2 & \textit{Inbound Anomaly Score Exceeded} (28 bloqueios; top 15: scores 23, 8, 13, 18) & 26\textsuperscript{*} \\
+942100 & 2 & \textit{SQL Injection Attack Detected via libinjection} & 16 \\
+941100 & 2 & \textit{XSS Attack Detected via libinjection} & 13 \\
+941390 & 2 & \textit{Javascript method detected} & 13 \\
+941160 & 2 & \textit{NoScript XSS InjectionChecker: HTML Injection} & 11 \\
+941120 & 2 & \textit{XSS Filter - Category 2: Event Handler Vector} & 6 \\
+942190 & 2 & \textit{Detects SQL code execution and information gathering attempts} & 5 \\
+941110 & 2 & \textit{XSS Filter - Category 1: Script Tag Vector} & 5 \\
+942360 & 2 & \textit{Detects concatenated basic SQL injection and SQLLFI attempts} & 3 \\
+942270 & 2 & \textit{Looking for basic sql injection. Common attack string for mysql, oracle and others} & 2 \\
+942160 & 2 & \textit{Detects blind sqli tests using sleep() or benchmark()} & 2 \\
 \bottomrule
 \end{tabularx}
+\par\vspace{0.15cm}\footnotesize\textsuperscript{*}Nota: o resumo em \texttt{metrics\_summary.json} lista o \textit{top 15} agrupando \texttt{949110} pela pontuação total na mensagem (13$\times$ score 23, 6$\times$ score 8, 4$\times$ score 13 e 3$\times$ score 18), totalizando 28 bloqueios HTTP 403 quando incluídos os restantes patamares.
 \end{table}
 
-O excerto seguinte ilustra um evento real extraído de \texttt{audit.log}, evidenciando o mecanismo de \textit{Anomaly Scoring} até ao bloqueio final com HTTP \texttt{403}:
+\newpage
+O excerto seguinte ilustra uma transação real extraída de \texttt{SRC/logs/audit.log} (caso \texttt{ATK-01}), evidenciando a acumulação de pontuação entre a regra \texttt{920350} (severidade 4, +3 pontos) e a regra \texttt{942100} (severidade 2, +5 pontos) até à decisão de bloqueio na regra \texttt{949110} (\textit{Total Score: 8 $\geq$ 5}) com HTTP \texttt{403}:
 
-\begin{lstlisting}[caption={Excerto do registo JSON em \texttt{SRC/logs/audit.log} (substituir por excerto real).},label={lst:audit_json}]
+\begin{lstlisting}[caption={Excerto real do registo JSON em \texttt{SRC/logs/audit.log} para o ataque \texttt{ATK-01}.},label={lst:audit_json}]
 {
   "transaction": {
-    "client_ip": "172.18.0.1",
+    "client_ip": "172.19.0.1",
+    "time_stamp": "Thu Nov 26 09:43:59 2026",
+    "unique_id": "179568623957.119427",
+    "is_interrupted": true,
     "request": {
       "method": "GET",
-      "uri": "/vulnerabilities/sqli/?id=1'+OR+'1'%3D'1&Submit=Submit"
+      "uri": "/vulnerabilities/sqli/?id=%27+OR+%271%27%3D%271&Submit=Submit",
+      "headers": { "Host": "127.0.0.1:8080", "User-Agent": "SRSI-Evaluator/1.0" }
     },
     "response": { "http_code": 403 },
+    "producer": { "modsecurity": "ModSecurity v3.0.17 (Linux)", "components": ["OWASP_CRS/4.30.0"] },
     "messages": [
-      {
-        "message": "[PLACEHOLDER: substituir pelo JSON real obtido em SRC/logs/audit.log]",
-        "details": { "ruleId": "942100", "severity": "2" }
-      }
+      { "message": "Host header is a numeric IP address", "details": { "ruleId": "920350", "severity": "4" } },
+      { "message": "SQL Injection Attack Detected via libinjection", "details": { "ruleId": "942100", "severity": "2", "data": "Matched Data: s&sos found within ARGS:id: ' OR '1'='1" } },
+      { "message": "Inbound Anomaly Score Exceeded (Total Score: 8)", "details": { "ruleId": "949110", "severity": "0" } }
     ]
   }
 }
 \end{lstlisting}
 
+\newpage
 \subsection{Avaliação de Desempenho e Impacto na Latência ($\Delta L$)}
-Para quantificar a sobrecarga introduzida pelo motor de inspeção de acordo com a Equação $\Delta L = L_{\text{WAF}} - L_{\text{Base}}$, executou-se o \textit{Apache Benchmark} (\texttt{ab}) sobre $N = 500$ pedidos autenticados ao \textit{endpoint} \texttt{/vulnerabilities/sqli/?id=1\&Submit=Submit} para dois níveis de concorrência ($c=10$ e $c=50$). Os valores recolhidos em \texttt{results/latency\_benchmark.csv} são apresentados na Tabela \ref{tab:benchmark_latencia}.
+Para quantificar a sobrecarga introduzida pelo motor de inspeção de acordo com a Equação $\Delta L = L_{\text{WAF}} - L_{\text{Base}}$, executou-se o \textit{Apache Benchmark} (\texttt{ab}) sobre $N = 500$ pedidos autenticados ao \textit{endpoint} \texttt{/vulnerabilities/sqli/?id=1\&Submit=Submit} para dois níveis de concorrência ($c=10$ e $c=50$), sem falhas de ligação em nenhum dos ensaios (\texttt{failed\_requests = 0}). Os valores recolhidos em \texttt{results/latency\_benchmark.csv} e \texttt{results/latency\_benchmark.json} são apresentados na Tabela \ref{tab:benchmark_latencia} e ilustrados na Figura \ref{fig:latencia_comparacao}.
 
-\begin{table}[h!]
+\begin{table}[htbp]
 \centering
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
 \caption{Comparação de latência e débito entre Nginx sem WAF ($L_{\text{Base}}$) e com ModSecurity ($L_{\text{WAF}}$).}
 \label{tab:benchmark_latencia}
-\begin{tabular}{c c c c c c c}
+\begin{tabularx}{\textwidth}{*{7}{>{\centering\arraybackslash}X}}
 \toprule
-\textbf{Concorrência ($c$)} & \textbf{$L_{\text{Base}}$ (ms)} & \textbf{$L_{\text{WAF}}$ (ms)} & \textbf{$\Delta L$ (ms)} & \textbf{Sobrecarga (\%)} & \textbf{Base (RPS)} & \textbf{WAF (RPS)} \\
+\textbf{Concorr. ($c$)} & \textbf{$L_{\text{Base}}$ (ms)} & \textbf{$L_{\text{WAF}}$ (ms)} & \textbf{$\Delta L$ (ms)} & \textbf{Sobrecarga (\%)} & \textbf{Base (RPS)} & \textbf{WAF (RPS)} \\
 \midrule
-10 & \todo{XX.XX} & \todo{XX.XX} & \todo{+XX.XX} & \todo{+XX.X\%} & \todo{XXX.X} & \todo{XXX.X} \\
-50 & \todo{XX.XX} & \todo{XX.XX} & \todo{+XX.XX} & \todo{+XX.X\%} & \todo{XXX.X} & \todo{XXX.X} \\
+10 & 13.019 & 14.928 & +1.909 & +14.66\% & 768.10 & 669.87 \\
+50 & 64.582 & 73.480 & +8.898 & +13.78\% & 774.21 & 680.46 \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
+
+Em termos de latência de cauda ($p_{95}$), registou-se uma subida de \texttt{15.0 ms} para \texttt{22.0 ms} com $c = 10$ e de \texttt{67.0 ms} para \texttt{80.0 ms} com $c = 50$, acompanhada de uma redução de débito de cerca de $12{,}8\%$ para $c=10$ e $12{,}1\%$ para $c=50$.
 
 \begin{figure}[h!]
     \centering
-    \placeholderfig{Comparação de Latência e RPS ($L_{\text{Base}}$ vs. $L_{\text{WAF}}$)}{Inserir gráfico de barras comparando o tempo médio de resposta (ms) e o percentil $p_{95}$ ou RPS para $c=10$ e $c=50$.}
-    \caption{Impacto do WAF \textit{ModSecurity} v3 na latência média e capacidade de processamento.}
+    \includegraphics[width=0.95\textwidth]{images/latencia_comparacao.png}
+    \caption{Impacto do WAF \textit{ModSecurity} v3 na latência média, percentil $p_{95}$ e capacidade de processamento.}
     \label{fig:latencia_comparacao}
 \end{figure}
 
@@ -403,9 +449,9 @@ Para quantificar a sobrecarga introduzida pelo motor de inspeção de acordo com
 Com base nas observações efetuadas durante os testes práticos, destacam-se os seguintes aspetos críticos:
 \begin{enumerate}
     \item \textbf{Defesa em Profundidade vs. Correção na Origem:} Embora o \textit{ModSecurity} v3 + OWASP CRS bloqueie eficazmente a maioria das explorações de SQLi e XSS antes de atingirem a aplicação PHP, a vulnerabilidade subjacente na DVWA permanece presente. Um WAF atua como camada compensatória e de mitigação imediata, não substituindo o uso de \textit{prepared statements} nem a codificação contextual de saída.
-    \item \textbf{Limitações de Assinaturas e Evasão:} \todo{Comentar o comportamento observado nos casos \texttt{SQLi\_Evasion} e \texttt{XSS\_Evasion}, explicando porque determinadas mutações sintáticas ou codificações exigem normalizações adicionais ou níveis de paranoia superiores.}
+    \item \textbf{Limitações de Assinaturas e Evasão:} Todos os vetores de evasão testados em \texttt{SQLi\_Evasion} (comentários \textit{inline} \texttt{/**/}, comentários condicionais MySQL \texttt{/*!50000OR*/}, operadores alternativos e tabulação) e \texttt{XSS\_Evasion} (mistura de maiúsculas/minúsculas, separador \texttt{/}, evento \texttt{ontoggle} e codificação em entidades HTML) foram detetados já em \textit{Paranoia Level 1}, graças à combinação entre análise lexical (\texttt{libinjection}), funções de normalização e expressões regulares do OWASP CRS 4.30.0. Ainda assim, técnicas de evasão mais sofisticadas --- como codificações encadeadas, \textit{HTTP Parameter Pollution} ou vetores específicos de contexto JSON/DOM --- continuam a justificar o estudo de níveis de paranoia superiores e medidas complementares na aplicação.
     \item \textbf{Compromisso Operacional e \textit{Tuning}:} O aumento do nível de paranoia reduz o risco de falsos negativos, mas aumenta a sensibilidade a entradas legítimas com caracteres especiais (como apóstrofos ou operadores matemáticos). A análise sistemática do \texttt{audit.log} revela-se indispensável para criar exclusões cirúrgicas por \textit{URI} e parâmetro sem desativar a proteção global.
-    \item \textbf{Custo de Desempenho:} \todo{Discutir se o $\Delta L$ medido na Tabela \ref{tab:benchmark_latencia} é aceitável para aplicações Web típicas e como escala entre $c=10$ e $c=50$ pedidos concorrentes.}
+    \item \textbf{Custo de Desempenho:} A sobrecarga medida na Tabela \ref{tab:benchmark_latencia} revelou um acréscimo médio reduzido em termos absolutos ($\Delta L = +1{,}909\text{ ms}$ para $c=10$) e uma penalização relativa praticamente estável com o aumento da carga ($+14{,}66\%$ em $c=10$ e $+13{,}78\%$ em $c=50$, com $\Delta L = +8{,}898\text{ ms}$). Este comportamento demonstra que o custo de inspeção escala de forma previsível, mantendo um débito superior a $669\text{ req/s}$ em ambos os patamares de concorrência, o que é aceitável para a maioria das aplicações Web.
     \item \textbf{Validade e Âmbito dos Testes:} Os ensaios decorreram em ambiente local virtualizado com um conjunto controlado de 48 pedidos (28 ataques e 20 pedidos legítimos) sobre quatro módulos da DVWA em nível \textit{low}, sem cifragem TLS nem tráfego de produção complexo (ex.: \textit{payloads} JSON extensos).
 \end{enumerate}
 
@@ -418,7 +464,7 @@ Com base nas observações efetuadas durante os testes práticos, destacam-se os
 
 A segunda fase do projeto permitiu validar experimentalmente o papel do \textit{Web Application Firewall} \textit{ModSecurity} v3 integrado em Nginx com o OWASP \textit{Core Rule Set} na proteção de uma aplicação Web vulnerável (DVWA) em ambiente \textit{Docker}.
 
-Os ensaios demonstraram que, na ausência do WAF, os vetores de \textit{SQL Injection} e \textit{Cross-Site Scripting} são explorados com sucesso, ao passo que a ativação do WAF alcançou uma Sensibilidade de \todo{XX.X\%}, uma Especificidade de \todo{XX.X\%} e um \textit{F1-Score} de \todo{0.XXXX} em \textit{Paranoia Level 1}, introduzindo uma sobrecarga média de latência $\Delta L$ de \todo{+XX.XX ms} para concorrência $c=10$ e \todo{+XX.XX ms} para $c=50$. A análise dos registos em \texttt{audit.log} confirmou o funcionamento do modelo de \textit{Anomaly Scoring} e permitiu fundamentar decisões de afinação de regras.
+Os ensaios demonstraram que, na ausência do WAF, os vetores de \textit{SQL Injection} e \textit{Cross-Site Scripting} são explorados com sucesso (incluindo enumeração automática de bases de dados via \texttt{sqlmap}), ao passo que a ativação do WAF alcançou uma Sensibilidade de 100{,}0\%, uma Especificidade de 100{,}0\% e um \textit{F1-Score} de 1{,}0000 em \textit{Paranoia Level 1}, bloqueando igualmente 377 tentativas do \texttt{sqlmap} e introduzindo uma sobrecarga média de latência $\Delta L$ de $+1{,}909\text{ ms}$ ($+14{,}66\%$) para concorrência $c=10$ e $+8{,}898\text{ ms}$ ($+13{,}78\%$) para $c=50$. A análise dos registos em \texttt{audit.log} confirmou o funcionamento do modelo de \textit{Anomaly Scoring} e permitiu identificar o comportamento das regras do CRS (incluindo o contributo da regra \texttt{920350}) como base para a segunda ronda de testes em \textit{Paranoia Level 2} e eventual afinação.
 
 Como trabalho futuro, identificam-se três linhas de evolução natural:
 \begin{itemize}

