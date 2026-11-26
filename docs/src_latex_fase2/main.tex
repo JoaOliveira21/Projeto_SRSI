@@ -88,7 +88,7 @@
 \addcontentsline{toc}{section}{Resumo}
 Este documento apresenta a segunda fase (componente prática) do projeto de Segurança em Redes e Sistemas de Informação, dando continuidade ao enquadramento teórico e ao modelo formal definidos na Fase 1. Foi implementado um ambiente virtualizado isolado em \textit{Docker} composto pela aplicação intencionalmente vulnerável \textit{Damn Vulnerable Web Application} (DVWA), um \textit{reverse proxy} Nginx sem proteção (\textit{baseline}) e um \textit{reverse proxy} Nginx equipado com o \textit{Web Application Firewall} (WAF) \textit{ModSecurity} v3 e o conjunto de regras OWASP \textit{Core Rule Set} (CRS).
 
-Com recurso a conjuntos reproduzíveis de pedidos maliciosos (\textit{SQL Injection} e \textit{Cross-Site Scripting}, incluindo variantes de evasão) e de tráfego legítimo, bem como às ferramentas \texttt{sqlmap}, \texttt{cURL} e \textit{Apache Benchmark} (\texttt{ab}), são avaliadas a eficácia de deteção através da matriz de confusão (Precisão, Sensibilidade, \textit{F1-Score}, Especificidade e Acurácia Balanceada), a análise dos registos estruturados (\texttt{audit.log}) e o impacto na latência ($\Delta L$). Na primeira ronda experimental com \textit{Paranoia Level 1}, o WAF obteve uma taxa de deteção de 100\% ($TP = 28$, $FN = 0$) sem falsos positivos ($FP = 0$, $TN = 20$, \textit{F1-Score} $= 1{,}0000$), introduzindo uma sobrecarga média de latência $\Delta L = +1{,}909\text{ ms}$ ($+14{,}66\%$) para concorrência $c = 10$ e $\Delta L = +8{,}898\text{ ms}$ ($+13{,}78\%$) para $c = 50$ ($N = 500$ pedidos).
+Com recurso a conjuntos reproduzíveis de pedidos maliciosos (\textit{SQL Injection} e \textit{Cross-Site Scripting}, incluindo variantes de evasão) e de tráfego legítimo, bem como às ferramentas \texttt{sqlmap}, \texttt{cURL} e \textit{Apache Benchmark} (\texttt{ab}), são avaliadas a eficácia de deteção através da matriz de confusão (Precisão, Sensibilidade, \textit{F1-Score}, Especificidade e Acurácia Balanceada), a análise dos registos estruturados (\texttt{audit.log}) e o impacto na latência ($\Delta L$). Em \textit{Paranoia Level 1}, o WAF obteve uma taxa de deteção de 100\% ($TP = 28$, $FN = 0$) sem falsos positivos ($FP = 0$, $TN = 20$, \textit{F1-Score} $= 1{,}0000$), com $\Delta L = +1{,}909\text{ ms}$ ($+14{,}66\%$) para $c = 10$ e $\Delta L = +8{,}898\text{ ms}$ ($+13{,}78\%$) para $c = 50$ ($N = 500$). Ao elevar para \textit{Paranoia Level 2}, surgiram 2 falsos positivos em casos legítimos de fronteira (Precisão $= 0{,}9333$, Especificidade $= 0{,}9000$, \textit{F1-Score} $= 0{,}9655$, $\Delta L = +21{,}890\text{ ms}$ em $c = 50$), os quais foram totalmente eliminados após afinação cirúrgica em \texttt{RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf}, restaurando o \textit{F1-Score} de $1{,}0000$.
 
 \vspace{0.8cm}
 \noindent \textbf{Palavras-chave:} Segurança Web, WAF, \textit{ModSecurity} v3, OWASP CRS, DVWA, \textit{Docker}, \textit{SQL Injection}, XSS, \textit{Benchmarking}.
@@ -140,7 +140,7 @@ Em termos específicos, esta fase prática procura responder a quatro questões 
     \item Qual é a sobrecarga de latência ($\Delta L$) introduzida pela inspeção profunda de pacotes sob diferentes níveis de concorrência?
 \end{enumerate}
 
-O restante documento encontra-se organizado da seguinte forma: a Secção \ref{sec:arquitetura} descreve a infraestrutura em \textit{Docker} implementada; a Secção \ref{sec:metodologia_exp} detalha os conjuntos de teste e ferramentas utilizadas; a Secção \ref{sec:resultados} apresenta os resultados experimentais e análise dos registos de auditoria; a Secção \ref{sec:discussao} discute limitações e boas práticas; e a Secção \ref{sec:conclusoes} sintetiza as conclusões finais.
+O restante documento encontra-se organizado da seguinte forma: a Secção \ref{sec:arquitetura} descreve a infraestrutura em \textit{Docker} implementada, a Secção \ref{sec:metodologia_exp} detalha os conjuntos de teste e ferramentas utilizadas, a Secção \ref{sec:resultados} apresenta os resultados experimentais e análise dos registos de auditoria, a Secção \ref{sec:discussao} discute limitações e boas práticas e a Secção \ref{sec:conclusoes} sintetiza as conclusões finais.
 
 % ==========================================
 % 2. Arquitetura e Implementacao do Ambiente
@@ -272,18 +272,21 @@ available databases [2]:
 \subsection{Eficácia de Deteção e Matriz de Confusão (\textit{Paranoia Level 1})}
 Com o WAF ativo (\texttt{MODSEC\_RULE\_ENGINE=On}, \texttt{BLOCKING\_PARANOIA=1}, \textit{OWASP CRS 4.30.0}), executou-se o conjunto completo de 48 pedidos (28 ataques e 20 legítimos). Os resultados obtidos a partir de \texttt{results/metrics\_summary.json} e \texttt{results/detailed\_results.csv} encontram-se sintetizados nas Tabelas \ref{tab:matriz_confusao_pl1}, \ref{tab:metricas_pl1} e \ref{tab:resultados_categoria}.
 
-\begin{table}[h!]
+\begin{table}[htbp]
 \centering
+\small
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.15}
 \caption{Matriz de confusão obtida com OWASP CRS em \textit{Paranoia Level 1}.}
 \label{tab:matriz_confusao_pl1}
-\begin{tabular}{l c c c}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{4.2cm} *{3}{>{\centering\arraybackslash}X}}
 \toprule
  & \textbf{Bloqueado pelo WAF (HTTP 403)} & \textbf{Permitido pelo WAF} & \textbf{Total} \\
 \midrule
 \textbf{Ataque Real (28)} & $TP = 28$ & $FN = 0$ & 28 \\
 \textbf{Tráfego Legítimo (20)} & $FP = 0$ & $TN = 20$ & 20 \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 \begin{table}[h!]
@@ -336,27 +339,49 @@ Cookie: PHPSESSID=cu4rtl7m6b3g32jo8a9evcp895; security=low
 \end{lstlisting}
 
 \subsection{Análise de Evasão, \textit{Paranoia Levels} e Afinação (\textit{Tuning})}
-Para avaliar empiricamente o compromisso entre segurança e falsos positivos descrito na literatura, a Tabela \ref{tab:comparacao_pl} regista os valores obtidos nesta primeira ronda em \textit{Paranoia Level 1} (\texttt{BLOCKING\_PARANOIA=1}) e reserva os cenários de comparação para a ronda seguinte com \texttt{BLOCKING\_PARANOIA=2} e afinação em \texttt{SRC/modsecurity/}.
+Para avaliar o compromisso entre segurança e falsos positivos descrito na literatura, repetiu-se a avaliação elevando \texttt{BLOCKING\_PARANOIA=2} no ficheiro \texttt{SRC/.env} e, posteriormente, aplicando uma regra de exclusão cirúrgica em \texttt{SRC/\allowbreak modsecurity/\allowbreak RESPONSE-999-\allowbreak EXCLUSION-RULES-\allowbreak AFTER-CRS.conf}. A Tabela \ref{tab:comparacao_pl} compara os três cenários experimentais.
 
-\begin{table}[h!]
+\begin{table}[htbp]
 \centering
-\caption{Comparação de desempenho do WAF entre \textit{Paranoia Level 1} (executado), \textit{Level 2} e pós-\textit{tuning}.}
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\caption{Comparação de desempenho do WAF entre \textit{Paranoia Level 1}, \textit{Level 2} e pós-\textit{tuning}.}
 \label{tab:comparacao_pl}
-\begin{tabular}{l c c c c c c}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.6cm} *{8}{>{\centering\arraybackslash}X}}
 \toprule
-\textbf{Configuração} & \textbf{TP} & \textbf{FN} & \textbf{FP} & \textbf{TN} & \textbf{Sensibilidade} & \textbf{Especificidade} \\
+\textbf{Configuração} & \textbf{TP} & \textbf{FN} & \textbf{FP} & \textbf{TN} & \textbf{Prec.} & \textbf{Sens.} & \textbf{Espec.} & \textbf{F1} \\
 \midrule
-OWASP CRS PL1 (Padrão) & 28 & 0 & 0 & 20 & 1.0000 & 1.0000 \\
-OWASP CRS PL2 & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} \\
-OWASP CRS PL2 + \textit{Tuning} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} & \todo{Pend.} \\
+OWASP CRS PL1 (Padrão) & 28 & 0 & 0 & 20 & 1.0000 & 1.0000 & 1.0000 & 1.0000 \\
+OWASP CRS PL2 & 28 & 0 & 2 & 18 & 0.9333 & 1.0000 & 0.9000 & 0.9655 \\
+OWASP CRS PL2 + \textit{Tuning} & 28 & 0 & 0 & 20 & 1.0000 & 1.0000 & 1.0000 & 1.0000 \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
-Nesta primeira ronda em PL1, não ocorreram falsos negativos nos conjuntos \texttt{SQLi\_Evasion} (\texttt{ATK-12} a \texttt{ATK-15}) nem \texttt{XSS\_Evasion} (\texttt{ATK-24} a \texttt{ATK-28}), bem como não se verificaram falsos positivos nos 4 casos de fronteira (\texttt{LEG-17} a \texttt{LEG-20}). Observou-se contudo nos registos de auditoria que a regra \texttt{920350} (\textit{Host header is a numeric IP address}) acumulou $+3$ pontos de anomalia (\textit{Notice}) em todos os pedidos enviados para \texttt{127.0.0.1:8080}: nos pedidos legítimos a pontuação total manteve-se em $3 < 5$ (abaixo do limiar \texttt{ANOMALY\_INBOUND=5}), mas em \textit{Paranoia Level 2} regras adicionais de deteção podem somar pontos suficientes sobre textos com apóstrofos (\texttt{LEG-19}) ou termos SQL naturais (\texttt{LEG-18}) para ultrapassar o limiar, motivando o ensaio futuro de PL2 e a eventual aplicação de exceções em \texttt{RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf}.
+\newpage
+Na primeira ronda em PL1, não ocorreram falsos negativos nos conjuntos \texttt{SQLi\_Evasion} (\texttt{ATK-12} a \texttt{ATK-15}) nem \texttt{XSS\_Evasion} (\texttt{ATK-24} a \texttt{ATK-28}), nem falsos positivos nos 4 casos de fronteira (\texttt{LEG-17} a \texttt{LEG-20}). Já em \textit{Paranoia Level 2}, o alargamento das assinaturas aumentou a profundidade da deteção sobre os ataques (elevando os \textit{scores} de anomalia para patamares entre 33 e 48 nos casos de \texttt{XSS\_Stored}), mas gerou \textbf{2 falsos positivos} (\texttt{FP = 2}, \texttt{TN = 18}, Acurácia Balanceada $= 0{,}9500$) no módulo de \textit{Guestbook} (\texttt{POST /vulnerabilities/xss\_s/}):
+\begin{itemize}
+    \item \textbf{\texttt{LEG-17}} (\texttt{"Nota: verificar se a taxa e inferior a 5\% (ex: 2 < 5)."}): bloqueado com HTTP \texttt{403} pela regra PL2 \texttt{942131} (\textit{SQL Injection Attack: SQL Boolean-based attack detected}, severidade 2, $+5$ pontos devido à expressão \texttt{2 < 5} em \texttt{ARGS:mtxMessage}), atingindo um \textit{Total Score} de $8 \geq 5$ em conjunto com a regra \texttt{920350} ($+3$).
+    \item \textbf{\texttt{LEG-18}} (\texttt{"Please select the union of both sets from the table."}): bloqueado com HTTP \texttt{403} pelas regras PL2 \texttt{942200} (\textit{Detects MySQL comment-/space-obfuscated injections}) e \texttt{942260} (\textit{Detects basic SQL authentication bypass attempts 2/3}), ambas sobre \texttt{ARGS:mtxMessage}, acumulando $13$ pontos de anomalia com a regra \texttt{920350}.
+    \item \textbf{\texttt{LEG-19}} (\texttt{O'Connor}) e \textbf{\texttt{LEG-20}} (\texttt{Ref: \#2026-01}): permaneceram permitidos com HTTP \texttt{200} em PL2.
+\end{itemize}
 
+Com base nesta evidência do \texttt{audit.log}, implementou-se uma regra de afinação cirúrgica (\texttt{id:100200}) em fase 1 no ficheiro \texttt{RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf}, removendo apenas o alvo \texttt{ARGS:mtxMessage} das regras \texttt{942131}, \texttt{942200} e \texttt{942260} quando o pedido se destina ao \textit{endpoint} \texttt{/vulnerabilities/xss\_s/}, preservando intactas todas as regras XSS (\texttt{941xxx}) nesse campo e mantendo as regras SQLi PL2 ativas nos \textit{endpoints} de SQLi:
+
+\begin{lstlisting}[caption={Regra de afinação aplicada em \texttt{SRC/\allowbreak modsecurity/\allowbreak RESPONSE-999-\allowbreak EXCLUSION-RULES-\allowbreak AFTER-CRS.conf}.},label={lst:tuning_pl2}]
+SecRule REQUEST_URI "@beginsWith /vulnerabilities/xss_s/" \
+    "id:100200,phase:1,pass,nolog,\
+    ctl:ruleRemoveTargetById=942131;ARGS:mtxMessage,\
+    ctl:ruleRemoveTargetById=942200;ARGS:mtxMessage,\
+    ctl:ruleRemoveTargetById=942260;ARGS:mtxMessage"
+\end{lstlisting}
+
+Após reiniciar o contentor \texttt{waf} com a regra \texttt{100200} ativa, a reavaliação completa (\texttt{results/\allowbreak pl2\_tuned/}) confirmou a eliminação total dos falsos positivos (\texttt{FP = 0}, \texttt{TN = 20}), mantendo todos os 28 ataques bloqueados (\texttt{TP = 28}, \texttt{FN = 0}) e restaurando Precisão, Sensibilidade, Especificidade, \textit{F1-Score} e Acurácia Balanceada para \texttt{1.0000}.
+
+\newpage
 \subsection{Análise dos Registos de Auditoria (\texttt{audit.log})}
-Na Fase 5 do ciclo de vida do \textit{ModSecurity}, todas as transações relevantes foram registadas em formato JSON em \texttt{SRC/logs/audit.log}. Durante a execução do conjunto de 48 casos de teste em \texttt{run\_evaluation.py} (que somou 55 transações HTTP incluindo inicialização de sessão DVWA, com 28 bloqueios HTTP \texttt{403}), a Tabela \ref{tab:top_regras_crs} sintetiza as regras do OWASP CRS mais frequentemente ativadas segundo \texttt{results/metrics\_summary.json}. Após a execução subsequente do \texttt{sqlmap}, o ficheiro \texttt{audit.log} atingiu 446 transações (405 respostas HTTP \texttt{403}), destacando-se ainda a regra \texttt{913100} (\textit{Found User-Agent associated with security scanner}) com 377 ativações.
+Na Fase 5 do ciclo de vida do \textit{ModSecurity}, todas as transações relevantes foram registadas em formato JSON em \texttt{SRC/logs/audit.log}. Durante a execução do conjunto de 48 casos de teste em PL1 (que somou 55 transações HTTP incluindo inicialização de sessão DVWA, com 28 bloqueios HTTP \texttt{403}), a Tabela \ref{tab:top_regras_crs} sintetiza as regras do OWASP CRS mais frequentemente ativadas segundo \texttt{results/pl1/metrics\_summary.json}. Em PL2 (sem \textit{tuning}), o número de bloqueios subiu para 30 em 55 transações devido à ativação adicional de regras como \texttt{941320} (10$\times$), \texttt{942370} (9$\times$), \texttt{942131} (9$\times$), \texttt{942180} (8$\times$), \texttt{942520} (7$\times$), \texttt{942130} (6$\times$) e \texttt{942330} (6$\times$), regressando a 28 bloqueios em \texttt{PL2 + Tuning}. Após a execução subsequente do \texttt{sqlmap} em PL1, o ficheiro \texttt{audit.log} atingiu 446 transações (405 respostas HTTP \texttt{403}), destacando-se ainda a regra \texttt{913100} (\textit{Found User-Agent associated with security scanner}) com 377 ativações.
 
 \begin{table}[h!]
 \centering
@@ -430,7 +455,29 @@ Para quantificar a sobrecarga introduzida pelo motor de inspeção de acordo com
 \end{tabularx}
 \end{table}
 
-Em termos de latência de cauda ($p_{95}$), registou-se uma subida de \texttt{15.0 ms} para \texttt{22.0 ms} com $c = 10$ e de \texttt{67.0 ms} para \texttt{80.0 ms} com $c = 50$, acompanhada de uma redução de débito de cerca de $12{,}8\%$ para $c=10$ e $12{,}1\%$ para $c=50$.
+Em termos de latência de cauda ($p_{95}$), registou-se em PL1 uma subida de \texttt{15.0 ms} para \texttt{22.0 ms} com $c = 10$ e de \texttt{67.0 ms} para \texttt{80.0 ms} com $c = 50$, acompanhada de uma redução de débito de cerca de $12{,}8\%$ para $c=10$ e $12{,}1\%$ para $c=50$.
+
+Para aferir o impacto computacional adicional do conjunto alargado de regras em \textit{Paranoia Level 2}, repetiu-se o \textit{benchmark} nas mesmas condições ($N=500$ pedidos em \texttt{results/\allowbreak pl2/\allowbreak latency\_\allowbreak benchmark.json}), conforme resumido na Tabela \ref{tab:benchmark_latencia_pl2}.
+
+\begin{table}[htbp]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\caption{Comparação de latência e débito em \textit{Paranoia Level 2} ($L_{\text{Base}}$ vs. $L_{\text{WAF}}$).}
+\label{tab:benchmark_latencia_pl2}
+\begin{tabularx}{\textwidth}{*{7}{>{\centering\arraybackslash}X}}
+\toprule
+\textbf{Concorr. ($c$)} & \textbf{$L_{\text{Base}}$ (ms)} & \textbf{$L_{\text{WAF}}$ (ms)} & \textbf{$\Delta L$ (ms)} & \textbf{Sobrecarga (\%)} & \textbf{Base (RPS)} & \textbf{WAF (RPS)} \\
+\midrule
+10 & 14.413 & 15.461 & +1.048 & +7.27\% & 693.82 & 646.79 \\
+50 & 65.015 & 86.905 & +21.890 & +33.67\% & 769.05 & 575.34 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\newpage
+Observa-se que, com baixa concorrência ($c = 10$), o custo de PL2 permanece próximo do de PL1 ($L_{\text{WAF}} = 15{,}461\text{ ms}$, $p_{95} = 20{,}0\text{ ms}$ vs. $18{,}0\text{ ms}$). Contudo, sob carga concorrente elevada ($c = 50$), a avaliação de regras adicionais em PL2 faz a latência média do WAF subir para $86{,}905\text{ ms}$ ($\Delta L = +21{,}890\text{ ms}$, sobrecarga de $+33{,}67\%$, $p_{95} = 103{,}0\text{ ms}$ vs. $71{,}0\text{ ms}$ no \textit{baseline}) e reduz o débito para $575{,}34\text{ req/s}$ (face a $680{,}46\text{ req/s}$ em PL1).
 
 \begin{figure}[h!]
     \centering
@@ -450,8 +497,8 @@ Com base nas observações efetuadas durante os testes práticos, destacam-se os
 \begin{enumerate}
     \item \textbf{Defesa em Profundidade vs. Correção na Origem:} Embora o \textit{ModSecurity} v3 + OWASP CRS bloqueie eficazmente a maioria das explorações de SQLi e XSS antes de atingirem a aplicação PHP, a vulnerabilidade subjacente na DVWA permanece presente. Um WAF atua como camada compensatória e de mitigação imediata, não substituindo o uso de \textit{prepared statements} nem a codificação contextual de saída.
     \item \textbf{Limitações de Assinaturas e Evasão:} Todos os vetores de evasão testados em \texttt{SQLi\_Evasion} (comentários \textit{inline} \texttt{/**/}, comentários condicionais MySQL \texttt{/*!50000OR*/}, operadores alternativos e tabulação) e \texttt{XSS\_Evasion} (mistura de maiúsculas/minúsculas, separador \texttt{/}, evento \texttt{ontoggle} e codificação em entidades HTML) foram detetados já em \textit{Paranoia Level 1}, graças à combinação entre análise lexical (\texttt{libinjection}), funções de normalização e expressões regulares do OWASP CRS 4.30.0. Ainda assim, técnicas de evasão mais sofisticadas --- como codificações encadeadas, \textit{HTTP Parameter Pollution} ou vetores específicos de contexto JSON/DOM --- continuam a justificar o estudo de níveis de paranoia superiores e medidas complementares na aplicação.
-    \item \textbf{Compromisso Operacional e \textit{Tuning}:} O aumento do nível de paranoia reduz o risco de falsos negativos, mas aumenta a sensibilidade a entradas legítimas com caracteres especiais (como apóstrofos ou operadores matemáticos). A análise sistemática do \texttt{audit.log} revela-se indispensável para criar exclusões cirúrgicas por \textit{URI} e parâmetro sem desativar a proteção global.
-    \item \textbf{Custo de Desempenho:} A sobrecarga medida na Tabela \ref{tab:benchmark_latencia} revelou um acréscimo médio reduzido em termos absolutos ($\Delta L = +1{,}909\text{ ms}$ para $c=10$) e uma penalização relativa praticamente estável com o aumento da carga ($+14{,}66\%$ em $c=10$ e $+13{,}78\%$ em $c=50$, com $\Delta L = +8{,}898\text{ ms}$). Este comportamento demonstra que o custo de inspeção escala de forma previsível, mantendo um débito superior a $669\text{ req/s}$ em ambos os patamares de concorrência, o que é aceitável para a maioria das aplicações Web.
+    \item \textbf{Compromisso Operacional e \textit{Tuning}:} Os ensaios em \textit{Paranoia Level 2} comprovaram na prática que o aumento de sensibilidade pode bloquear entradas legítimas com operadores matemáticos ou termos SQL naturais (\texttt{LEG-17} e \texttt{LEG-18} pelas regras \texttt{942131}, \texttt{942200} e \texttt{942260}). A análise do \texttt{audit.log} revelou-se indispensável para aplicar exclusões cirúrgicas por \textit{URI} e parâmetro (\texttt{ctl:ruleRemoveTargetById} sobre \texttt{ARGS:mtxMessage} em \texttt{/vulnerabilities/xss\_s/}), eliminando os falsos positivos sem enfraquecer a proteção dos restantes \textit{endpoints}.
+    \item \textbf{Custo de Desempenho:} Em PL1, a sobrecarga medida revelou um acréscimo médio reduzido em termos absolutos ($\Delta L = +1{,}909\text{ ms}$ para $c=10$) e uma penalização relativa estável ($+14{,}66\%$ em $c=10$ e $+13{,}78\%$ em $c=50$, com $\Delta L = +8{,}898\text{ ms}$ e débito acima de $669\text{ req/s}$). Em PL2, o custo sob alta concorrência ($c=50$) aumentou para $\Delta L = +21{,}890\text{ ms}$ ($+33{,}67\%$, $575{,}34\text{ req/s}$), evidenciando que níveis de paranoia superiores penalizam tanto a usabilidade (falsos positivos) como a escalabilidade sob carga.
     \item \textbf{Validade e Âmbito dos Testes:} Os ensaios decorreram em ambiente local virtualizado com um conjunto controlado de 48 pedidos (28 ataques e 20 pedidos legítimos) sobre quatro módulos da DVWA em nível \textit{low}, sem cifragem TLS nem tráfego de produção complexo (ex.: \textit{payloads} JSON extensos).
 \end{enumerate}
 
@@ -464,7 +511,7 @@ Com base nas observações efetuadas durante os testes práticos, destacam-se os
 
 A segunda fase do projeto permitiu validar experimentalmente o papel do \textit{Web Application Firewall} \textit{ModSecurity} v3 integrado em Nginx com o OWASP \textit{Core Rule Set} na proteção de uma aplicação Web vulnerável (DVWA) em ambiente \textit{Docker}.
 
-Os ensaios demonstraram que, na ausência do WAF, os vetores de \textit{SQL Injection} e \textit{Cross-Site Scripting} são explorados com sucesso (incluindo enumeração automática de bases de dados via \texttt{sqlmap}), ao passo que a ativação do WAF alcançou uma Sensibilidade de 100{,}0\%, uma Especificidade de 100{,}0\% e um \textit{F1-Score} de 1{,}0000 em \textit{Paranoia Level 1}, bloqueando igualmente 377 tentativas do \texttt{sqlmap} e introduzindo uma sobrecarga média de latência $\Delta L$ de $+1{,}909\text{ ms}$ ($+14{,}66\%$) para concorrência $c=10$ e $+8{,}898\text{ ms}$ ($+13{,}78\%$) para $c=50$. A análise dos registos em \texttt{audit.log} confirmou o funcionamento do modelo de \textit{Anomaly Scoring} e permitiu identificar o comportamento das regras do CRS (incluindo o contributo da regra \texttt{920350}) como base para a segunda ronda de testes em \textit{Paranoia Level 2} e eventual afinação.
+Os ensaios demonstraram que, na ausência do WAF, os vetores de \textit{SQL Injection} e \textit{Cross-Site Scripting} são explorados com sucesso (incluindo enumeração automática de bases de dados via \texttt{sqlmap}), ao passo que a ativação do WAF alcançou uma Sensibilidade de 100{,}0\%, uma Especificidade de 100{,}0\% e um \textit{F1-Score} de 1{,}0000 em \textit{Paranoia Level 1}, bloqueando igualmente 377 tentativas do \texttt{sqlmap} e introduzindo uma sobrecarga média de latência $\Delta L$ de $+1{,}909\text{ ms}$ ($+14{,}66\%$) para concorrência $c=10$ e $+8{,}898\text{ ms}$ ($+13{,}78\%$) para $c=50$. Ao elevar para \textit{Paranoia Level 2}, o WAF manteve 100{,}0\% de Sensibilidade mas sofreu 2 falsos positivos em casos legítimos de fronteira (Especificidade de 90{,}0\%, Precisão de 93{,}33\%, \textit{F1-Score} de 0{,}9655) e maior sobrecarga sob carga ($\Delta L = +21{,}890\text{ ms}$ / $+33{,}67\%$ para $c=50$). A análise dos registos em \texttt{audit.log} permitiu identificar as regras causadoras (\texttt{942131}, \texttt{942200} e \texttt{942260}) e aplicar uma exclusão cirúrgica por parâmetro e \textit{URI}, restaurando a Especificidade e o \textit{F1-Score} para 1{,}0000 sem perda de proteção.
 
 Como trabalho futuro, identificam-se três linhas de evolução natural:
 \begin{itemize}

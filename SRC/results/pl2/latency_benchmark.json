@@ -1,0 +1,32 @@
+[
+  {
+    "concurrency": 10,
+    "requests": 500,
+    "endpoint": "/vulnerabilities/sqli/?id=1&Submit=Submit",
+    "L_Base_ms": 14.413,
+    "L_WAF_ms": 15.461,
+    "Delta_L_ms": 1.048,
+    "overhead_pct": 7.27,
+    "Base_RPS": 693.82,
+    "WAF_RPS": 646.79,
+    "Base_p95_ms": 18.0,
+    "WAF_p95_ms": 20.0,
+    "Base_failed": 0,
+    "WAF_failed": 0
+  },
+  {
+    "concurrency": 50,
+    "requests": 500,
+    "endpoint": "/vulnerabilities/sqli/?id=1&Submit=Submit",
+    "L_Base_ms": 65.015,
+    "L_WAF_ms": 86.905,
+    "Delta_L_ms": 21.89,
+    "overhead_pct": 33.67,
+    "Base_RPS": 769.05,
+    "WAF_RPS": 575.34,
+    "Base_p95_ms": 71.0,
+    "WAF_p95_ms": 103.0,
+    "Base_failed": 0,
+    "WAF_failed": 0
+  }
+]
